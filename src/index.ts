@@ -13,6 +13,7 @@ import * as oauthClient from 'openid-client'
 import { CSRF } from './csrf'
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
+const cors = require('cors')
 
 const app = express()
 
@@ -79,18 +80,24 @@ app.get('/callback', async (req: Request, res: Response) => {
   res.send(`hello, ${me.first_name}!`)
 })
 
+const corsOptions = {
+  origin: /\.recurse\.com$/,
+  credentials: true,
+}
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-app.post('/text', async (req: Request, res: Response) => {
-  /*
+app.post('/text', cors(corsOptions), async (req: Request, res: Response) => {
   const csrfToken = req.cookies.get('receipt_csrf')
   if (!csrfToken) {
+    res.status(400).end()
+    return
+  }
+  if (!csrf.isTokenValid(req.session.id, csrfToken)) {
     res.status(403).end()
     return
   }
-  console.log(csrfToken)
-  */
   const content = req.body.text
   const buf = Buffer.from(
     '\x1b\x40' + content + '\x1b\x64\x06' + '\x1d\x56\x00')
