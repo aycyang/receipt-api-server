@@ -1,13 +1,18 @@
 import express, { Request, Response } from 'express'
-import { doubleCsrf } from 'csrf-csrf'
+import * as Cookies  from 'cookies'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
+import * as csrf from './csrf'
 
 const app = express()
 
+const cookieKeys = ['TODO some securely stored keys']
+
+app.use(Cookies.express(cookieKeys))
+
 app.use(cookieSession({
   name: 'session',
-  keys: [ 'MY_SUPER_SECRET_KEY' ],
+  keys: cookieKeys,
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
 }))
 
@@ -37,6 +42,7 @@ app.get('/login', (req: Request, res: Response) => {
   res.redirect(oauthClient.buildAuthorizationUrl(config, parameters))
 })
 
+
 app.get('/callback', async (req: Request, res: Response) => {
   const currentURL = new URL(process.env.ORIGIN + '/callback?code=' + req.query.code)
   const tokens = await oauthClient.authorizationCodeGrant(config, currentURL)
@@ -46,6 +52,12 @@ app.get('/callback', async (req: Request, res: Response) => {
     new URL('https://www.recurse.com/api/v1/profiles/me'),
     'GET')
   const me = await meRes.json()
+  req.session.id = 'TODO some random session id'
+  const csrfToken = csrf.generateToken(req.session.id)
+  res.cookies.set('receipt_csrf', csrfToken, {
+    httpOnly: false,
+    domain: process.env.PARENT_DOMAIN,
+  })
   res.send(`hello, ${me.first_name}!`)
 })
 
