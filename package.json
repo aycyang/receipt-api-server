@@ -1,0 +1,26 @@
+{
+  "name": "checkout-api-server",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx tsx --env-file .env --watch src/index.ts",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cookie-session": "^2.1.1",
+    "cors": "^2.8.5",
+    "csrf-csrf": "^4.0.3",
+    "express": "^5.1.0",
+    "openid-client": "^6.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
