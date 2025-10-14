@@ -89,12 +89,20 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 app.post('/text', cors(corsOptions), async (req: Request, res: Response) => {
-  const csrfToken = req.cookies.get('receipt_csrf')
+  const sessionId = req.session.id
+  if (!sessionId) {
+    console.log("no session id")
+    res.status(403).end()
+    return
+  }
+  const csrfToken = req.header('X-CSRF-Token')
   if (!csrfToken) {
-    res.status(400).end()
+    console.log("no csrf token")
+    res.status(403).end()
     return
   }
   if (!csrf.isTokenValid(req.session.id, csrfToken)) {
+    console.log("csrf token not valid")
     res.status(403).end()
     return
   }
