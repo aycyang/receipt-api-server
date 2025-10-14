@@ -30,7 +30,7 @@ app.get('/', (req: Request, res: Response) => {
 
 app.get('/login', (req: Request, res: Response) => {
   const parameters: Record<string, string> = {
-    redirect_uri: 'http://localhost:3000/callback',
+    redirect_uri: process.env.ORIGIN + '/callback',
     scope: 'public',
     // TODO include state for improved security
   }
@@ -38,7 +38,7 @@ app.get('/login', (req: Request, res: Response) => {
 })
 
 app.get('/callback', async (req: Request, res: Response) => {
-  const currentURL = new URL('http://localhost:3000/callback?code=' + req.query.code)
+  const currentURL = new URL(process.env.ORIGIN + '/callback?code=' + req.query.code)
   const tokens = await oauthClient.authorizationCodeGrant(config, currentURL)
   const meRes = await oauthClient.fetchProtectedResource(
     config,
