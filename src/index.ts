@@ -1,6 +1,5 @@
 /**
  * TODO
- * - generate random session id (10 min)
  * - figure out secret key storage (20 min)
  * - create a simple, CSRF-protected API for doing the most basic thing (print text and cut) (20 min)
  * - deploy to the pi (20 min)
@@ -15,6 +14,7 @@ import * as Cookies  from 'cookies'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import * as csrf from './csrf'
+import * as crypto from 'node:crypto'
 
 const app = express()
 
@@ -68,7 +68,7 @@ app.get('/callback', async (req: Request, res: Response) => {
     new URL('https://www.recurse.com/api/v1/profiles/me'),
     'GET')
   const me = await meRes.json()
-  req.session.id = 'TODO some random session id'
+  req.session.id = crypto.randomUUID()
   const csrfToken = csrf.generateToken(req.session.id)
   res.cookies.set('receipt_csrf', csrfToken, {
     httpOnly: false,
