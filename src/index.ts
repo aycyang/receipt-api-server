@@ -1,3 +1,15 @@
+/**
+ * TODO
+ * - generate random session id (10 min)
+ * - figure out secret key storage (20 min)
+ * - create a simple, CSRF-protected API for doing the most basic thing (print text and cut) (20 min)
+ * - deploy to the pi (20 min)
+ * - reverse proxy the pi (2 hours)
+ * - point receipt.recurse.com CNAME at the reverse proxy (5 min)
+ * - set up a basic frontend on a different subdomain to test cross-subdomain API calls (1 hour)
+ */
+
+
 import express, { Request, Response } from 'express'
 import * as Cookies  from 'cookies'
 import cookieSession from 'cookie-session'
@@ -33,19 +45,23 @@ app.get('/', (req: Request, res: Response) => {
   res.send('<a href="login">login to RC</a>')
 })
 
-app.get('/login', (req: Request, res: Response) => {
+app.get('/login', async (req: Request, res: Response) => {
+  req.session.state = oauthClient.randomState()
   const parameters: Record<string, string> = {
     redirect_uri: process.env.ORIGIN + '/callback',
     scope: 'public',
-    // TODO include state for improved security
+    state: req.session.state,
   }
   res.redirect(oauthClient.buildAuthorizationUrl(config, parameters))
 })
 
 
 app.get('/callback', async (req: Request, res: Response) => {
-  const currentURL = new URL(process.env.ORIGIN + '/callback?code=' + req.query.code)
-  const tokens = await oauthClient.authorizationCodeGrant(config, currentURL)
+  const params = new URLSearchParams(req.query).toString()
+  const currentURL = new URL(process.env.ORIGIN + '/callback?' + params)
+  const tokens = await oauthClient.authorizationCodeGrant(config, currentURL, {
+    expectedState: req.session.state,
+  })
   const meRes = await oauthClient.fetchProtectedResource(
     config,
     tokens.access_token,
