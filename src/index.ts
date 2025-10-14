@@ -80,6 +80,7 @@ app.get('/callback', async (req: Request, res: Response) => {
   res.send(`hello, ${me.first_name}!`)
 })
 
+
 const corsOptions = {
   origin: /\.recurse\.com$/,
   credentials: true,
@@ -88,6 +89,7 @@ const corsOptions = {
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+app.options('/text', cors())
 app.post('/text', cors(corsOptions), async (req: Request, res: Response) => {
   const sessionId = req.session.id
   if (!sessionId) {
