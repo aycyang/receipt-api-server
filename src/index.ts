@@ -89,7 +89,7 @@ const corsOptions = {
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-app.options('/text', cors())
+app.options('/text', cors(corsOptions))
 app.post('/text', cors(corsOptions), async (req: Request, res: Response) => {
   const sessionId = req.session.id
   if (!sessionId) {

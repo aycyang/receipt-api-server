@@ -6,26 +6,26 @@ export class CSRF {
     this.keys = keys
   }
 
-  // sessionId is base64-encoded
-  // salt is base64-encoded
-  // returns base64-encoded hash
+  // sessionId is uuid
+  // salt is hex string
+  // returns hex hmac
   #hmacSessionIdAndSalt(sessionId: string, salt: string): string {
     const hmac = crypto.createHmac('sha256', this.keys[0])
     hmac.update([sessionId.length, sessionId, salt.length, salt].join('!'))
-    return hmac.digest('base64')
+    return hmac.digest('hex')
   }
 
-  // sessionId is base64-encoded
-  // returns base64-encoded hmac
+  // sessionId is uuid
+  // returns hex hmac '.' hex salt
   generateToken(sessionId: string): string {
     const saltLength = 64
-    const salt = crypto.randomBytes(saltLength).toString('base64')
+    const salt = crypto.randomBytes(saltLength).toString('hex')
     const hash = this.#hmacSessionIdAndSalt(sessionId, salt)
     return hash + '.' + salt
   }
 
-  // sessionId is base64-encoded
-  // token is base64-encoded hmac
+  // sessionId is uuid
+  // token is hex hmac
   isTokenValid(sessionId: string, token: string): boolean {
     const [actual, salt] = token.split('.', 2)
     const expected = this.#hmacSessionIdAndSalt(sessionId, salt)
