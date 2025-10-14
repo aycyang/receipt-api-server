@@ -1,13 +1,10 @@
 /**
  * TODO
  * - create a simple, CSRF-protected API for doing the most basic thing (print text and cut) (20 min)
- * - deploy to the pi (20 min)
- * - reverse proxy the pi (2 hours)
- * - point receipt.recurse.com CNAME at the reverse proxy (5 min)
  * - set up a basic frontend on a different subdomain to test cross-subdomain API calls (1 hour)
  * - key rotation
+ * - if not receipt.recurse.com, redirect to it
  */
-
 
 import express, { Request, Response } from 'express'
 import * as Cookies  from 'cookies'
@@ -15,6 +12,7 @@ import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import { CSRF } from './csrf'
 import * as crypto from 'node:crypto'
+import * as fs from 'node:fs'
 
 const app = express()
 
@@ -79,6 +77,32 @@ app.get('/callback', async (req: Request, res: Response) => {
     domain: process.env.PARENT_DOMAIN,
   })
   res.send(`hello, ${me.first_name}!`)
+})
+
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+
+app.post('/text', async (req: Request, res: Response) => {
+  /*
+  const csrfToken = req.cookies.get('receipt_csrf')
+  if (!csrfToken) {
+    res.status(403).end()
+    return
+  }
+  console.log(csrfToken)
+  */
+  const content = req.body.text
+  const buf = Buffer.from(
+    '\x1b\x40' + content + '\x1b\x64\x06' + '\x1d\x56\x00')
+  fs.writeFile(process.env.OUT_FILE, buf, err => {
+    if (err) {
+      console.error(err)
+    } else {
+      console.log(`wrote to ${process.env.OUT_FILE}`)
+    }
+  })
+  console.log(req.body)
+  res.send('ok\n')
 })
 
 app.listen(port, () => {
