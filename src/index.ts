@@ -1,7 +1,5 @@
 /**
  * TODO
- * - create a simple, CSRF-protected API for doing the most basic thing (print text and cut) (20 min)
- * - set up a basic frontend on a different subdomain to test cross-subdomain API calls (1 hour)
  * - key rotation
  * - if not receipt.recurse.com, redirect to it
  */
@@ -34,7 +32,7 @@ const csrf = new CSRF(secretKeys)
 const port = 3000
 
 const serverMetadata: oauthClient.ServerMetadata = {
-  issuer: 'rc', // unknown for recurse.com
+  issuer: 'rc', // unknown for recurse.com but required by openid-client
   authorization_endpoint: 'https://www.recurse.com/oauth/authorize',
   token_endpoint: 'https://www.recurse.com/oauth/token',
 }
@@ -45,7 +43,7 @@ const config: oauthClient.Configuration = new oauthClient.Configuration(
   process.env.CLIENT_SECRET)
 
 app.get('/', (req: Request, res: Response) => {
-  res.send('<a href="login">login to RC</a>')
+  res.send('<h1>Receipt Printer API Server</h1><a href="login">Click here to authenticate with Receipt Printer API Server by way of RC OAuth.</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.')
 })
 
 app.get('/login', async (req: Request, res: Response) => {
@@ -78,7 +76,7 @@ app.get('/callback', async (req: Request, res: Response) => {
     httpOnly: false,
     domain: process.env.PARENT_DOMAIN,
   })
-  res.send(`hello, ${me.first_name}! you are now authenticated with receipt printer API.<br><br>to go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a>`)
+  res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>To go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
 })
 
 
