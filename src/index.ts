@@ -49,6 +49,7 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 app.get('/login', async (req: Request, res: Response) => {
+  req.session.referrer = req.header('Referer')
   req.session.state = oauthClient.randomState()
   const parameters: Record<string, string> = {
     redirect_uri: process.env.ORIGIN + '/callback',
@@ -77,7 +78,7 @@ app.get('/callback', async (req: Request, res: Response) => {
     httpOnly: false,
     domain: process.env.PARENT_DOMAIN,
   })
-  res.send(`hello, ${me.first_name}!`)
+  res.send(`hello, ${me.first_name}! you are now authenticated with receipt printer API.<br><br>to go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a>`)
 })
 
 
