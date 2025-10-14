@@ -1,6 +1,7 @@
-// Copied from https://tsx.is/typescript#recommendation
+// Copied from https://tsx.is/typescript#recommendation and modified
 {
 	"compilerOptions": {
+    "target": "es2015",
 
 		// Treat files as modules even if it doesn't use import/export
 		"moduleDetection": "force",

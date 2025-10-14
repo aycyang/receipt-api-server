@@ -1,11 +1,11 @@
 /**
  * TODO
- * - figure out secret key storage (20 min)
  * - create a simple, CSRF-protected API for doing the most basic thing (print text and cut) (20 min)
  * - deploy to the pi (20 min)
  * - reverse proxy the pi (2 hours)
  * - point receipt.recurse.com CNAME at the reverse proxy (5 min)
  * - set up a basic frontend on a different subdomain to test cross-subdomain API calls (1 hour)
+ * - key rotation
  */
 
 
@@ -13,20 +13,24 @@ import express, { Request, Response } from 'express'
 import * as Cookies  from 'cookies'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
-import * as csrf from './csrf'
+import { CSRF } from './csrf'
 import * as crypto from 'node:crypto'
 
 const app = express()
 
-const cookieKeys = ['TODO some securely stored keys']
+// TODO rotate keys
+const secretKey = Buffer.from(process.env.SECRET_KEY, 'hex')
+const secretKeys = [ secretKey ]
 
-app.use(Cookies.express(cookieKeys))
+app.use(Cookies.express(secretKeys))
 
 app.use(cookieSession({
   name: 'session',
-  keys: cookieKeys,
+  keys: secretKeys,
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
 }))
+
+const csrf = new CSRF(secretKeys)
 
 const port = 3000
 
