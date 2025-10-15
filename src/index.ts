@@ -31,6 +31,7 @@ import * as oauthClient from 'openid-client'
 import { CSRF } from './csrf'
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
+import * as escpos from './escpos'
 const cors = require('cors')
 
 const app = express()
@@ -162,12 +163,16 @@ app.post('/escpos', cors(corsOptions), express.raw('application/octet-stream'), 
       return
     }
   }
-  const buf = Buffer.from(req.body)
-  fs.writeFile(process.env.OUT_FILE, buf, err => {
+  if (!escpos.validate(req.body)) {
+    console.log('invalid escpos: ' + req.body)
+    res.status(400).end()
+    return
+  }
+  fs.writeFile(process.env.OUT_FILE, req.body, err => {
     if (err) {
       console.error(err)
     } else {
-      console.log(`escpos: wrote ${buf.length} bytes to ${process.env.OUT_FILE}`)
+      console.log(`escpos: wrote ${req.body.length} bytes to ${process.env.OUT_FILE}`)
     }
   })
   res.send('Thank you!\n')
