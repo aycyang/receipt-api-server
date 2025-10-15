@@ -1,7 +1,27 @@
 /**
  * TODO
- * - key rotation
- * - if not receipt.recurse.com, redirect to it
+ * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
+ *   it, then send it to the printer (1 hour)
+ * - refactor csrf validation into middleware so I don't have to manually check
+ *   it every time (30 min)
+ * - check for csrf token in more places: header names other than X-CSRF-Token,
+ *   in hidden form inputs (20 min)
+ * - look into leveraging openapi middleware for reducing the manual work of
+ *   writing out API method signatures and writing docs (30 min)
+ * - look into adding GET routes for two-way communication with printer. for
+ *   example, there is a command to get paper sensor status (40 min)
+ * - text endpoint: add validation to check that characters are exclusively
+ *   printable ascii, etc. (20 min)
+ * - text endpoint: add some formatting options (e.g. font selection,
+ *   horiz/vertical stretching, justification, upside down, bold, color
+ *   inversion, underline, strikethrough) (20 min)
+ * - image endpoint: send me a jpg/png/gif and I validate, resize, preprocess
+ *   and print it (with dry-run/preview option?) (hard to make this composable
+ *   with text and other esc/pos commands, but should be useful for people who
+ *   just want a no-fuss way to print an image) (2 hours)
+ * - secret key rotation (30 min)
+ * - investigate if concurrent requests can interfere with each other (30 min)
+ * - if not receipt.recurse.com, redirect to it (20 min)
  */
 
 import express, { Request, Response } from 'express'
@@ -85,27 +105,26 @@ const corsOptions = {
   credentials: true,
 }
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
 app.options('/text', cors(corsOptions))
-app.post('/text', cors(corsOptions), async (req: Request, res: Response) => {
-  const sessionId = req.session.id
-  if (!sessionId) {
-    console.log("no session id")
-    res.status(403).end()
-    return
-  }
-  const csrfToken = req.header('X-CSRF-Token')
-  if (!csrfToken) {
-    console.log("no csrf token")
-    res.status(403).end()
-    return
-  }
-  if (!csrf.isTokenValid(req.session.id, csrfToken)) {
-    console.log("csrf token not valid")
-    res.status(403).end()
-    return
+app.post('/text', cors(corsOptions), express.json(), express.urlencoded(), async (req: Request, res: Response) => {
+  if (process.env.AUTHENTICATION === 'on') {
+    const sessionId = req.session.id
+    if (!sessionId) {
+      console.log("no session id")
+      res.status(403).end()
+      return
+    }
+    const csrfToken = req.header('X-CSRF-Token')
+    if (!csrfToken) {
+      console.log("no csrf token")
+      res.status(403).end()
+      return
+    }
+    if (!csrf.isTokenValid(req.session.id, csrfToken)) {
+      console.log("csrf token not valid")
+      res.status(403).end()
+      return
+    }
   }
   const content = req.body.text
   const buf = Buffer.from(
@@ -114,11 +133,44 @@ app.post('/text', cors(corsOptions), async (req: Request, res: Response) => {
     if (err) {
       console.error(err)
     } else {
-      console.log(`wrote to ${process.env.OUT_FILE}`)
+      console.log(`text: wrote to ${process.env.OUT_FILE}`)
     }
   })
   console.log(req.body)
-  res.send('ok\n')
+  console.log(`wrote to ${process.env.OUT_FILE}`)
+  res.send(`Printed:<br><pre>${content}</pre><br>Thank you!\n`)
+})
+
+app.options('/escpos', cors(corsOptions))
+app.post('/escpos', cors(corsOptions), express.raw('application/octet-stream'), async (req: Request, res: Response) => {
+  if (process.env.AUTHENTICATION === 'on') {
+    const sessionId = req.session.id
+    if (!sessionId) {
+      console.log("no session id")
+      res.status(403).end()
+      return
+    }
+    const csrfToken = req.header('X-CSRF-Token')
+    if (!csrfToken) {
+      console.log("no csrf token")
+      res.status(403).end()
+      return
+    }
+    if (!csrf.isTokenValid(req.session.id, csrfToken)) {
+      console.log("csrf token not valid")
+      res.status(403).end()
+      return
+    }
+  }
+  const buf = Buffer.from(req.body)
+  fs.writeFile(process.env.OUT_FILE, buf, err => {
+    if (err) {
+      console.error(err)
+    } else {
+      console.log(`escpos: wrote ${buf.length} bytes to ${process.env.OUT_FILE}`)
+    }
+  })
+  res.send('Thank you!\n')
 })
 
 app.listen(port, () => {
