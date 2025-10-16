@@ -25,7 +25,6 @@
  */
 
 import express, { Request, Response } from 'express'
-import * as Cookies  from 'cookies'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import { CSRF } from './csrf'
@@ -37,15 +36,13 @@ const cors = require('cors')
 const app = express()
 
 // TODO rotate keys
-const secretKey = Buffer.from(process.env.SECRET_KEY, 'hex')
-const secretKeys = [ secretKey ]
-
-app.use(Cookies.express(secretKeys))
+const secretKeys = [ process.env.SECRET_KEY ]
+const maxAge = 24 * 60 * 60 * 1000 // 24 hours
 
 app.use(cookieSession({
   name: 'session',
   keys: secretKeys,
-  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  maxAge,
 }))
 
 const csrf = new CSRF(secretKeys)
@@ -75,13 +72,12 @@ app.get('/login', async (req: Request, res: Response) => {
     scope: 'public',
     state: req.session.state,
   }
-  res.redirect(oauthClient.buildAuthorizationUrl(config, parameters))
+  res.redirect(oauthClient.buildAuthorizationUrl(config, parameters).toString())
 })
 
 
 app.get('/callback', async (req: Request, res: Response) => {
-  const params = new URLSearchParams(req.query).toString()
-  const currentURL = new URL(process.env.ORIGIN + '/callback?' + params)
+  const currentURL = new URL(process.env.ORIGIN + req.originalUrl)
   const tokens = await oauthClient.authorizationCodeGrant(config, currentURL, {
     expectedState: req.session.state,
   })
@@ -91,11 +87,19 @@ app.get('/callback', async (req: Request, res: Response) => {
     new URL('https://www.recurse.com/api/v1/profiles/me'),
     'GET')
   const me = await meRes.json()
+  const tomorrow: Date = new Date(Date.now() + maxAge)
   req.session.id = crypto.randomUUID()
+  req.session.expiresAt = tomorrow
   const csrfToken = csrf.generateToken(req.session.id)
-  res.cookies.set('receipt_csrf', csrfToken, {
+  res.cookie('receipt_csrf', csrfToken, {
+    // Readable by client-side JS.
     httpOnly: false,
+    // Accessible by frontends served from a subdomain of the parent domain.
     domain: process.env.PARENT_DOMAIN,
+    // Expires at the same time as the session cookie it is tied to.
+    expires: tomorrow,
+    // The CSRF token cookie does not need to be signed.
+    signed: false,
   })
   res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>To go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
 })
@@ -109,6 +113,16 @@ const corsOptions = {
 app.options('/text', cors(corsOptions))
 app.post('/text', cors(corsOptions), express.json(), express.urlencoded(), async (req: Request, res: Response) => {
   if (process.env.AUTHENTICATION === 'on') {
+    if (!req.session) {
+      console.log("no session")
+      res.status(403).end()
+      return
+    }
+    if (Date.now() > req.session.expiresAt) {
+      console.log("session expired")
+      res.status(403).end()
+      return
+    }
     const sessionId = req.session.id
     if (!sessionId) {
       console.log("no session id")
@@ -143,8 +157,18 @@ app.post('/text', cors(corsOptions), express.json(), express.urlencoded(), async
 })
 
 app.options('/escpos', cors(corsOptions))
-app.post('/escpos', cors(corsOptions), express.raw('application/octet-stream'), async (req: Request, res: Response) => {
+app.post('/escpos', cors(corsOptions), express.raw({ type: 'application/octet-stream' }), async (req: Request, res: Response) => {
   if (process.env.AUTHENTICATION === 'on') {
+    if (!req.session) {
+      console.log("no session")
+      res.status(403).end()
+      return
+    }
+    if (Date.now() > req.session.expiresAt) {
+      console.log("session expired")
+      res.status(403).end()
+      return
+    }
     const sessionId = req.session.id
     if (!sessionId) {
       console.log("no session id")
