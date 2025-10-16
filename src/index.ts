@@ -6,8 +6,6 @@
  *   it every time (30 min)
  * - check for csrf token in more places: header names other than X-CSRF-Token,
  *   in hidden form inputs (20 min)
- * - look into leveraging openapi middleware for reducing the manual work of
- *   writing out API method signatures and writing docs (30 min)
  * - look into adding GET routes for two-way communication with printer. for
  *   example, there is a command to get paper sensor status (40 min)
  * - text endpoint: add validation to check that characters are exclusively
@@ -22,6 +20,7 @@
  * - secret key rotation (30 min)
  * - investigate if concurrent requests can interfere with each other (30 min)
  * - if not receipt.recurse.com, redirect to it (20 min)
+ * - some kind of audit log
  */
 
 import express, { Request, Response } from 'express'
@@ -107,6 +106,7 @@ app.get('/callback', async (req: Request, res: Response) => {
 
 const corsOptions = {
   origin: /\.recurse\.com$/,
+  // Enable cookies because we need the session cookie to prove authentication.
   credentials: true,
 }
 
