@@ -95,10 +95,11 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 app.get('/login', (req: Request, res: Response) => {
+  req.session.referer = req.header('Referer')
   // redirect_uri is an optional URL parameter which this server will redirect
   // back to after authentication is complete.
   if (req.query.redirect_uri) {
-    // Validate redirect_uri.
+    // Validate the redirect URI.
     const redirectUri = req.query.redirect_uri.toString()
     let url: URL
     try {
@@ -159,7 +160,8 @@ app.get('/callback', async (req: Request, res: Response) => {
   if (req.session.redirectUri) {
     res.redirect(req.session.redirectUri)
   } else {
-    res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
+    const goBackHtml = `go back from whence you came: <a href="${req.session.referer}">${req.session.referer}</a>`
+    res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>${req.session.referer ? goBackHtml : ''}<br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
   }
 })
 
