@@ -118,6 +118,17 @@ app.get('/callback', async (req: Request, res: Response) => {
   res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>To go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
 })
 
+app.options('/status', cors(corsOptions), (req, res) => res.sendStatus(204))
+app.get('/status',
+  cors(corsOptions),
+  isAuthEnabled ? csrf.express() : noopMiddleware,
+  (req, res) => {
+    // TODO ping printer
+    res.status(200).json({status: 'online'})
+  }
+)
+
+// TODO use same CORS rules for all endpoints
 // Handle CORS preflight requests.
 app.options('/text', cors(corsOptions), (req, res) => res.sendStatus(204))
 app.post('/text',
@@ -138,7 +149,7 @@ app.post('/text',
   })
   console.log(req.body)
   console.log(`wrote to ${process.env.OUT_FILE}`)
-  res.status(200).json({}).end()
+  res.status(200).json({})
 })
 
 // Handle CORS preflight requests.
@@ -150,7 +161,7 @@ app.post('/escpos',
   async (req: Request, res: Response) => {
   if (!escpos.validate(req.body)) {
     console.log('invalid escpos: ' + req.body)
-    res.status(400).end()
+    res.status(400).json({error: 'invalid escpos'})
     return
   }
   fs.writeFile(process.env.OUT_FILE, req.body, err => {
@@ -160,7 +171,7 @@ app.post('/escpos',
       console.log(`escpos: wrote ${req.body.length} bytes to ${process.env.OUT_FILE}`)
     }
   })
-  res.status(200).json({}).end()
+  res.status(200).json({})
 })
 
 app.listen(port, () => {
