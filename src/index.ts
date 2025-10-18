@@ -1,6 +1,13 @@
 /**
  * TODO
+ * - use same cors rules for all endpoints (5 min)
+ * - document redirect_uri (10 min)
+ * - only show login link on receipt.recurse.com homepage if there's no session
+ *   cookie (20 min)
+ * - write deployment command (no watch) and systemd config to start on boot
+ *   (10 min)
  * - html templating with ejs (20 min)
+ * - generate docs using js docstring (10 min)
  * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
  *   it, then send it to the printer (1 hour)
  * - check for csrf token in more places: header names other than X-CSRF-Token,
@@ -19,7 +26,11 @@
  * - secret key rotation (30 min)
  * - investigate if concurrent requests can interfere with each other (30 min)
  * - if not receipt.recurse.com, redirect to it (20 min)
+ *   - add a bit of client-side JS that will check the origin and redirect if
+ *     it's not process.env.ORIGIN
  * - some kind of audit log
+ * - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
+ * - set up test with mock oauth provider (1 hour)
  *
  * TESTS
  * - can't read csrf token cross-site if not *.recurse.com subdomain
