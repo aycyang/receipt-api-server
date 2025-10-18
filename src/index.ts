@@ -1,6 +1,5 @@
 /**
  * TODO
- * - redirect back after printer auth (20 min)
  * - html templating with ejs (20 min)
  * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
  *   it, then send it to the printer (1 hour)
@@ -134,15 +133,17 @@ app.get('/login', (req: Request, res: Response) => {
 
 app.get('/callback', async (req: Request, res: Response) => {
   const currentURL = new URL(process.env.ORIGIN + req.originalUrl)
-  const tokens = await oauthClient.authorizationCodeGrant(config, currentURL, {
-    expectedState: req.session.state,
-  })
+  const tokens = await oauthClient.authorizationCodeGrant(
+    config,
+    currentURL,
+    { expectedState: req.session.state })
   const meRes = await oauthClient.fetchProtectedResource(
     config,
     tokens.access_token,
     new URL('https://www.recurse.com/api/v1/profiles/me'),
     'GET')
   const me = await meRes.json()
+  req.session.rcId = me.id
   const tomorrow: Date = new Date(Date.now() + maxAge)
   req.session.id = crypto.randomUUID()
   req.session.expiresAt = tomorrow
