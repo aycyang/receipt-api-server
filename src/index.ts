@@ -1,5 +1,6 @@
 /**
  * TODO
+ * - redirect back after printer auth (20 min)
  * - html templating with ejs (20 min)
  * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
  *   it, then send it to the printer (1 hour)
@@ -40,11 +41,13 @@ const cors = require('cors')
 assert(process.env.AUTHENTICATION, 'Environment variable AUTHENTICATION is missing')
 assert(process.env.OUT_FILE, 'Environment variable OUT_FILE is missing')
 assert(process.env.CSRF_COOKIE_DOMAIN, 'Environment variable CSRF_COOKIE_DOMAIN is missing')
-assert(process.env.ALLOW_ORIGIN, 'Environment variable ALLOW_ORIGIN is missing')
+assert(process.env.ALLOW_ORIGIN_REGEX, 'Environment variable ALLOW_ORIGIN_REGEX is missing')
 assert(process.env.ORIGIN, 'Environment variable ORIGIN is missing')
 assert(process.env.CLIENT_ID, 'Environment variable CLIENT_ID is missing')
 assert(process.env.CLIENT_SECRET, 'Environment variable CLIENT_SECRET is missing')
 assert(process.env.SECRET_KEY, 'Environment variable SECRET_KEY is missing')
+
+const allowOriginRegex = new RegExp(process.env.ALLOW_ORIGIN_REGEX)
 
 const app = express()
 
@@ -59,7 +62,9 @@ app.use(cookieSession({
 }))
 
 const corsOptions = {
-  origin: process.env.ALLOW_ORIGIN,
+  // If the Origin request header matches the regex, it is reflected back in
+  // the Access-Control-Allow-Origin response header.
+  origin: allowOriginRegex,
   // Enable cookies because we need the session cookie to prove authentication.
   credentials: true,
 }
@@ -76,6 +81,7 @@ const port = 3000
 const serverMetadata: oauthClient.ServerMetadata = {
   issuer: 'rc', // unknown for recurse.com but required by openid-client
   authorization_endpoint: 'https://www.recurse.com/oauth/authorize',
+  // Without 'www.', the POST method is not allowed.
   token_endpoint: 'https://www.recurse.com/oauth/token',
 }
 
@@ -88,8 +94,30 @@ app.get('/', (req: Request, res: Response) => {
   res.send('<h1>Receipt Printer API Server</h1><a href="login">Click here to authenticate with Receipt Printer API Server by way of RC OAuth.</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.')
 })
 
-app.get('/login', async (req: Request, res: Response) => {
-  req.session.referrer = req.header('Referer')
+app.get('/login', (req: Request, res: Response) => {
+  // redirect_uri is an optional URL parameter which this server will redirect
+  // back to after authentication is complete.
+  if (req.query.redirect_uri) {
+    // Validate redirect_uri.
+    const redirectUri = req.query.redirect_uri.toString()
+    let url: URL
+    try {
+      url = new URL(redirectUri)
+    } catch (e) {
+      // Not a URL.
+      console.error(``)
+      res.status(400).json({ error: `'${redirectUri}' is not a URL.` })
+      return
+    }
+    // To be safe, only redirect if domain is trusted.
+    if (!url.host.match(allowOriginRegex)) {
+      res.status(400).json({ error: `'${redirectUri}' is not an allowed origin.` })
+      return
+    }
+    req.session.redirectUri = redirectUri
+  }
+
+  // Kick off the RC OAuth authorization code flow.
   req.session.state = oauthClient.randomState()
   const parameters: Record<string, string> = {
     redirect_uri: process.env.ORIGIN + '/callback',
@@ -98,7 +126,6 @@ app.get('/login', async (req: Request, res: Response) => {
   }
   res.redirect(oauthClient.buildAuthorizationUrl(config, parameters).toString())
 })
-
 
 app.get('/callback', async (req: Request, res: Response) => {
   const currentURL = new URL(process.env.ORIGIN + req.originalUrl)
@@ -125,7 +152,11 @@ app.get('/callback', async (req: Request, res: Response) => {
     // The CSRF token cookie does not need to be signed.
     signed: false,
   })
-  res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>To go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
+  if (req.session.redirectUri) {
+    res.redirect(req.session.redirectUri)
+  } else {
+    res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
+  }
 })
 
 app.options('/status', cors(corsOptions), (req, res) => res.sendStatus(204))
@@ -134,7 +165,7 @@ app.get('/status',
   isAuthEnabled ? csrf.express() : noopMiddleware,
   (req, res) => {
     // TODO ping printer
-    res.status(200).json({status: 'online'})
+    res.json({status: 'online'})
   }
 )
 
@@ -159,7 +190,7 @@ app.post('/text',
   })
   console.log(req.body)
   console.log(`wrote to ${process.env.OUT_FILE}`)
-  res.status(200).json({})
+  res.json({})
 })
 
 // Handle CORS preflight requests.
@@ -181,7 +212,7 @@ app.post('/escpos',
       console.log(`escpos: wrote ${req.body.length} bytes to ${process.env.OUT_FILE}`)
     }
   })
-  res.status(200).json({})
+  res.json({})
 })
 
 app.listen(port, () => {
