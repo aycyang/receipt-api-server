@@ -115,6 +115,10 @@ app.get('/login', (req: Request, res: Response) => {
       return
     }
     req.session.redirectUri = redirectUri
+  } else {
+    // Explicitly unset the redirect URI if it's not in the query params.
+    // Otherwise, a redirect URI from a stale session may be used.
+    req.session.redirectUri = undefined
   }
 
   // Kick off the RC OAuth authorization code flow.
