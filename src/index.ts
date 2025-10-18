@@ -3,8 +3,6 @@
  * - html templating with ejs (20 min)
  * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
  *   it, then send it to the printer (1 hour)
- * - refactor csrf validation into middleware so I don't have to manually check
- *   it every time (30 min)
  * - check for csrf token in more places: header names other than X-CSRF-Token,
  *   in hidden form inputs (20 min)
  * - look into adding GET routes for two-way communication with printer. for
@@ -49,6 +47,12 @@ app.use(cookieSession({
   keys: secretKeys,
   maxAge,
 }))
+
+const corsOptions = {
+  origin: /\.recurse\.com$/,
+  // Enable cookies because we need the session cookie to prove authentication.
+  credentials: true,
+}
 
 const csrf = new Csrf(secretKeys)
 
@@ -113,14 +117,6 @@ app.get('/callback', async (req: Request, res: Response) => {
   })
   res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>To go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
 })
-
-// All endpoints from here on are protected access.
-const corsOptions = {
-  origin: /\.recurse\.com$/,
-  // Enable cookies because we need the session cookie to prove authentication.
-  credentials: true,
-}
-
 
 // Handle CORS preflight requests.
 app.options('/text', cors(corsOptions), (req, res) => res.sendStatus(204))
