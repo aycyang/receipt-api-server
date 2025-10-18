@@ -142,7 +142,7 @@ app.post('/text',
   })
   console.log(req.body)
   console.log(`wrote to ${process.env.OUT_FILE}`)
-  res.send(`Printed:<br><pre>${content}</pre><br>Thank you!\n`)
+  res.status(200).json({}).end()
 })
 
 // Handle CORS preflight requests.
@@ -164,7 +164,7 @@ app.post('/escpos',
       console.log(`escpos: wrote ${req.body.length} bytes to ${process.env.OUT_FILE}`)
     }
   })
-  res.send('Thank you!\n')
+  res.status(200).json({}).end()
 })
 
 app.listen(port, () => {
