@@ -27,14 +27,24 @@
  * - send csrf token as http header
  */
 
+import assert from 'node:assert'
+import * as crypto from 'node:crypto'
+import * as fs from 'node:fs'
 import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import { Csrf } from './csrf'
-import * as crypto from 'node:crypto'
-import * as fs from 'node:fs'
 import * as escpos from './escpos'
 const cors = require('cors')
+
+assert(process.env.AUTHENTICATION, 'Environment variable AUTHENTICATION is missing')
+assert(process.env.OUT_FILE, 'Environment variable OUT_FILE is missing')
+assert(process.env.CSRF_COOKIE_DOMAIN, 'Environment variable CSRF_COOKIE_DOMAIN is missing')
+assert(process.env.ALLOW_ORIGIN, 'Environment variable ALLOW_ORIGIN is missing')
+assert(process.env.ORIGIN, 'Environment variable ORIGIN is missing')
+assert(process.env.CLIENT_ID, 'Environment variable CLIENT_ID is missing')
+assert(process.env.CLIENT_SECRET, 'Environment variable CLIENT_SECRET is missing')
+assert(process.env.SECRET_KEY, 'Environment variable SECRET_KEY is missing')
 
 const app = express()
 
@@ -49,7 +59,7 @@ app.use(cookieSession({
 }))
 
 const corsOptions = {
-  origin: /\.recurse\.com$/,
+  origin: process.env.ALLOW_ORIGIN,
   // Enable cookies because we need the session cookie to prove authentication.
   credentials: true,
 }
@@ -109,7 +119,7 @@ app.get('/callback', async (req: Request, res: Response) => {
     // Readable by client-side JS.
     httpOnly: false,
     // Accessible by frontends served from a subdomain of the parent domain.
-    domain: process.env.PARENT_DOMAIN,
+    domain: process.env.CSRF_COOKIE_DOMAIN,
     // Expires at the same time as the session cookie it is tied to.
     expires: tomorrow,
     // The CSRF token cookie does not need to be signed.
