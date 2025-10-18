@@ -1,5 +1,6 @@
 /**
  * TODO
+ * - html templating with ejs (20 min)
  * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
  *   it, then send it to the printer (1 hour)
  * - refactor csrf validation into middleware so I don't have to manually check
@@ -21,12 +22,17 @@
  * - investigate if concurrent requests can interfere with each other (30 min)
  * - if not receipt.recurse.com, redirect to it (20 min)
  * - some kind of audit log
+ *
+ * TESTS
+ * - can't read csrf token cross-site if not *.recurse.com subdomain
+ * - send csrf token in hidden form input
+ * - send csrf token as http header
  */
 
 import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
-import { CSRF } from './csrf'
+import { Csrf } from './csrf'
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as escpos from './escpos'
@@ -44,7 +50,12 @@ app.use(cookieSession({
   maxAge,
 }))
 
-const csrf = new CSRF(secretKeys)
+const csrf = new Csrf(secretKeys)
+
+const noopMiddleware = (req, res, next) => next()
+
+// TODO accept other truthy values
+const isAuthEnabled = process.env.ENABLE_AUTH === 'on'
 
 const port = 3000
 
@@ -103,44 +114,22 @@ app.get('/callback', async (req: Request, res: Response) => {
   res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>To go back from whence you came: <a href=${req.session.referrer}>${req.session.referrer}</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
 })
 
-
+// All endpoints from here on are protected access.
 const corsOptions = {
   origin: /\.recurse\.com$/,
   // Enable cookies because we need the session cookie to prove authentication.
   credentials: true,
 }
 
-app.options('/text', cors(corsOptions))
-app.post('/text', cors(corsOptions), express.json(), express.urlencoded(), async (req: Request, res: Response) => {
-  if (process.env.AUTHENTICATION === 'on') {
-    if (!req.session) {
-      console.log("no session")
-      res.status(403).end()
-      return
-    }
-    if (Date.now() > req.session.expiresAt) {
-      console.log("session expired")
-      res.status(403).end()
-      return
-    }
-    const sessionId = req.session.id
-    if (!sessionId) {
-      console.log("no session id")
-      res.status(403).end()
-      return
-    }
-    const csrfToken = req.header('X-CSRF-Token')
-    if (!csrfToken) {
-      console.log("no csrf token")
-      res.status(403).end()
-      return
-    }
-    if (!csrf.isTokenValid(req.session.id, csrfToken)) {
-      console.log("csrf token not valid")
-      res.status(403).end()
-      return
-    }
-  }
+
+// Handle CORS preflight requests.
+app.options('/text', cors(corsOptions), (req, res) => res.sendStatus(204))
+app.post('/text',
+  cors(corsOptions),
+  express.json(),
+  express.urlencoded(),
+  isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
   const content = req.body.text
   const buf = Buffer.from(
     '\x1b\x40' + content + '\x1b\x64\x06' + '\x1d\x56\x00')
@@ -156,37 +145,13 @@ app.post('/text', cors(corsOptions), express.json(), express.urlencoded(), async
   res.send(`Printed:<br><pre>${content}</pre><br>Thank you!\n`)
 })
 
-app.options('/escpos', cors(corsOptions))
-app.post('/escpos', cors(corsOptions), express.raw({ type: 'application/octet-stream' }), async (req: Request, res: Response) => {
-  if (process.env.AUTHENTICATION === 'on') {
-    if (!req.session) {
-      console.log("no session")
-      res.status(403).end()
-      return
-    }
-    if (Date.now() > req.session.expiresAt) {
-      console.log("session expired")
-      res.status(403).end()
-      return
-    }
-    const sessionId = req.session.id
-    if (!sessionId) {
-      console.log("no session id")
-      res.status(403).end()
-      return
-    }
-    const csrfToken = req.header('X-CSRF-Token')
-    if (!csrfToken) {
-      console.log("no csrf token")
-      res.status(403).end()
-      return
-    }
-    if (!csrf.isTokenValid(req.session.id, csrfToken)) {
-      console.log("csrf token not valid")
-      res.status(403).end()
-      return
-    }
-  }
+// Handle CORS preflight requests.
+app.options('/escpos', cors(corsOptions), (req, res) => res.sendStatus(204))
+app.post('/escpos',
+  cors(corsOptions),
+  express.raw({ type: 'application/octet-stream' }),
+  isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
   if (!escpos.validate(req.body)) {
     console.log('invalid escpos: ' + req.body)
     res.status(400).end()

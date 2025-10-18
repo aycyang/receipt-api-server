@@ -1,6 +1,7 @@
 import * as crypto from 'node:crypto'
+import { Request, Response, NextFunction, RequestHandler } from 'express'
 
-export class CSRF {
+export class Csrf {
   keys: Array<any>
   constructor(keys: Array<any>) {
     this.keys = keys
@@ -30,5 +31,39 @@ export class CSRF {
     const [actual, salt] = token.split('.', 2)
     const expected = this.#hmacSessionIdAndSalt(sessionId, salt)
     return actual === expected
+  }
+
+  // express middleware
+  express(): RequestHandler {
+    return (req: Request, res: Response, next: NextFunction) => {
+      if (!req.session) {
+        console.log("no session")
+        res.status(403).end()
+        return
+      }
+      if (Date.now() > req.session.expiresAt) {
+        console.log("session expired")
+        res.status(403).end()
+        return
+      }
+      const sessionId = req.session.id
+      if (!sessionId) {
+        console.log("no session id")
+        res.status(403).end()
+        return
+      }
+      const csrfToken = req.header('X-CSRF-Token')
+      if (!csrfToken) {
+        console.log("no csrf token")
+        res.status(403).end()
+        return
+      }
+      if (!this.isTokenValid(req.session.id, csrfToken)) {
+        console.log("csrf token not valid")
+        res.status(403).end()
+        return
+      }
+      next()
+    }
   }
 }
