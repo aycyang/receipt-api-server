@@ -1,6 +1,5 @@
 /**
  * TODO
- * - use same cors rules for all endpoints (5 min)
  * - document redirect_uri (10 min)
  * - only show login link on receipt.recurse.com homepage if there's no session
  *   cookie (20 min)
@@ -78,6 +77,8 @@ const corsOptions = {
   // Enable cookies because we need the session cookie to prove authentication.
   credentials: true,
 }
+
+app.use(cors(corsOptions))
 
 const csrf = new Csrf(secretKeys)
 
@@ -177,9 +178,8 @@ app.get('/callback', async (req: Request, res: Response) => {
   }
 })
 
-app.options('/status', cors(corsOptions), (req, res) => res.sendStatus(204))
+app.options('/status', (req, res) => res.sendStatus(204))
 app.get('/status',
-  cors(corsOptions),
   isAuthEnabled ? csrf.express() : noopMiddleware,
   (req, res) => {
     // TODO ping printer
@@ -189,9 +189,8 @@ app.get('/status',
 
 // TODO use same CORS rules for all endpoints
 // Handle CORS preflight requests.
-app.options('/text', cors(corsOptions), (req, res) => res.sendStatus(204))
+app.options('/text', (req, res) => res.sendStatus(204))
 app.post('/text',
-  cors(corsOptions),
   express.json(),
   express.urlencoded(),
   isAuthEnabled ? csrf.express() : noopMiddleware,
@@ -212,9 +211,8 @@ app.post('/text',
 })
 
 // Handle CORS preflight requests.
-app.options('/escpos', cors(corsOptions), (req, res) => res.sendStatus(204))
+app.options('/escpos', (req, res) => res.sendStatus(204))
 app.post('/escpos',
-  cors(corsOptions),
   express.raw({ type: 'application/octet-stream' }),
   isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
