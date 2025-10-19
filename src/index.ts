@@ -1,6 +1,5 @@
 /**
  * TODO
- * - define env var type (20 min)
  * - document redirect_uri (10 min)
  * - only show login link on receipt.recurse.com homepage if there's no session
  *   cookie (20 min)
@@ -26,7 +25,7 @@
  * - investigate if concurrent requests can interfere with each other (30 min)
  * - if not receipt.recurse.com, redirect to it (20 min)
  *   - add a bit of client-side JS that will check the origin and redirect if
- *     it's not process.env.ORIGIN
+ *     it's not env.origin
  * - some kind of audit log
  * - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
  * - set up test with mock oauth provider (1 hour)
@@ -37,6 +36,10 @@
  * - send csrf token as http header
  */
 
+// Block access to the NodeJS global `process` object.
+// For environment variables, please use `env`.
+const process = {}
+
 import assert from 'node:assert'
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
@@ -45,24 +48,13 @@ import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import { Csrf } from './csrf'
 import * as escpos from './escpos'
+import { env } from './env'
 const cors = require('cors')
-
-assert(process.env.AUTHENTICATION, 'Environment variable AUTHENTICATION is missing')
-assert(process.env.OUT_FILE, 'Environment variable OUT_FILE is missing')
-assert(process.env.CSRF_COOKIE_DOMAIN, 'Environment variable CSRF_COOKIE_DOMAIN is missing')
-assert(process.env.CSRF_COOKIE_NAME, 'Environment variable CSRF_COOKIE_NAME is missing')
-assert(process.env.ALLOW_ORIGIN_REGEX, 'Environment variable ALLOW_ORIGIN_REGEX is missing')
-assert(process.env.ORIGIN, 'Environment variable ORIGIN is missing')
-assert(process.env.CLIENT_ID, 'Environment variable CLIENT_ID is missing')
-assert(process.env.CLIENT_SECRET, 'Environment variable CLIENT_SECRET is missing')
-assert(process.env.SECRET_KEY, 'Environment variable SECRET_KEY is missing')
-
-const allowOriginRegex = new RegExp(process.env.ALLOW_ORIGIN_REGEX)
 
 const app = express()
 
 // TODO rotate keys
-const secretKeys = [ process.env.SECRET_KEY ]
+const secretKeys = [ env.secretKey ]
 const maxAge = 24 * 60 * 60 * 1000 // 24 hours
 
 app.use(cookieSession({
@@ -74,7 +66,7 @@ app.use(cookieSession({
 const corsOptions = {
   // If the Origin request header matches the regex, it is reflected back in
   // the Access-Control-Allow-Origin response header.
-  origin: allowOriginRegex,
+  origin: env.allowOriginRegex,
   // Enable cookies because we need the session cookie to prove authentication.
   credentials: true,
 }
@@ -84,9 +76,6 @@ app.use(cors(corsOptions))
 const csrf = new Csrf(secretKeys)
 
 const noopMiddleware = (req, res, next) => next()
-
-// TODO accept other truthy values
-const isAuthEnabled = process.env.ENABLE_AUTH === 'on'
 
 const port = 3000
 
@@ -99,8 +88,8 @@ const serverMetadata: oauthClient.ServerMetadata = {
 
 const config: oauthClient.Configuration = new oauthClient.Configuration(
   serverMetadata,
-  process.env.CLIENT_ID,
-  process.env.CLIENT_SECRET)
+  env.clientId,
+  env.clientSecret)
 
 app.set('view engine', 'ejs')
 
@@ -125,7 +114,7 @@ app.get('/login', (req: Request, res: Response) => {
       return
     }
     // To be safe, only redirect if domain is trusted.
-    if (!url.host.match(allowOriginRegex)) {
+    if (!url.host.match(env.allowOriginRegex)) {
       res.status(400).json({ error: `'${redirectUri}' is not an allowed origin.` })
       return
     }
@@ -139,7 +128,7 @@ app.get('/login', (req: Request, res: Response) => {
   // Kick off the RC OAuth authorization code flow.
   req.session.state = oauthClient.randomState()
   const parameters: Record<string, string> = {
-    redirect_uri: process.env.ORIGIN + '/callback',
+    redirect_uri: env.origin + '/callback',
     scope: 'public',
     state: req.session.state,
   }
@@ -148,12 +137,12 @@ app.get('/login', (req: Request, res: Response) => {
 
 app.get('/logout', (req: Request, res: Response) => {
   req.session = null
-  res.clearCookie(process.env.CSRF_COOKIE_NAME)
+  res.clearCookie(env.csrfCookieName)
   res.redirect('/')
 })
 
 app.get('/callback', async (req: Request, res: Response) => {
-  const currentURL = new URL(process.env.ORIGIN + req.originalUrl)
+  const currentURL = new URL(env.origin + req.originalUrl)
   const tokens = await oauthClient.authorizationCodeGrant(
     config,
     currentURL,
@@ -170,11 +159,11 @@ app.get('/callback', async (req: Request, res: Response) => {
   req.session.id = crypto.randomUUID()
   req.session.expiresAt = tomorrow
   const csrfToken = csrf.generateToken(req.session.id)
-  res.cookie(process.env.CSRF_COOKIE_NAME, csrfToken, {
+  res.cookie(env.csrfCookieName, csrfToken, {
     // Readable by client-side JS.
     httpOnly: false,
     // Accessible by frontends served from a subdomain of the parent domain.
-    domain: process.env.CSRF_COOKIE_DOMAIN,
+    domain: env.csrfCookieDomain,
     // Expires at the same time as the session cookie it is tied to.
     expires: tomorrow,
     // The CSRF token cookie does not need to be signed.
@@ -185,7 +174,7 @@ app.get('/callback', async (req: Request, res: Response) => {
 
 app.options('/status', (req, res) => res.sendStatus(204))
 app.get('/status',
-  isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
   (req, res) => {
     // TODO ping printer
     res.json({status: 'online'})
@@ -198,20 +187,20 @@ app.options('/text', (req, res) => res.sendStatus(204))
 app.post('/text',
   express.json(),
   express.urlencoded(),
-  isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
   const content = req.body.text
   const buf = Buffer.from(
     '\x1b\x40' + content + '\x1b\x64\x06' + '\x1d\x56\x00')
-  fs.writeFile(process.env.OUT_FILE, buf, err => {
+  fs.writeFile(env.outFile, buf, err => {
     if (err) {
       console.error(err)
     } else {
-      console.log(`text: wrote to ${process.env.OUT_FILE}`)
+      console.log(`text: wrote to ${env.outFile}`)
     }
   })
   console.log(req.body)
-  console.log(`wrote to ${process.env.OUT_FILE}`)
+  console.log(`wrote to ${env.outFile}`)
   res.json({})
 })
 
@@ -219,18 +208,18 @@ app.post('/text',
 app.options('/escpos', (req, res) => res.sendStatus(204))
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream' }),
-  isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
   if (!escpos.validate(req.body)) {
     console.log('invalid escpos: ' + req.body)
     res.status(400).json({error: 'invalid escpos'})
     return
   }
-  fs.writeFile(process.env.OUT_FILE, req.body, err => {
+  fs.writeFile(env.outFile, req.body, err => {
     if (err) {
       console.error(err)
     } else {
-      console.log(`escpos: wrote ${req.body.length} bytes to ${process.env.OUT_FILE}`)
+      console.log(`escpos: wrote ${req.body.length} bytes to ${env.outFile}`)
     }
   })
   res.json({})
