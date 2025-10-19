@@ -1,11 +1,11 @@
 /**
  * TODO
+ * - define env var type (20 min)
  * - document redirect_uri (10 min)
  * - only show login link on receipt.recurse.com homepage if there's no session
  *   cookie (20 min)
  * - write deployment command (no watch) and systemd config to start on boot
  *   (10 min)
- * - html templating with ejs (20 min)
  * - generate docs using js docstring (10 min)
  * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
  *   it, then send it to the printer (1 hour)
@@ -50,6 +50,7 @@ const cors = require('cors')
 assert(process.env.AUTHENTICATION, 'Environment variable AUTHENTICATION is missing')
 assert(process.env.OUT_FILE, 'Environment variable OUT_FILE is missing')
 assert(process.env.CSRF_COOKIE_DOMAIN, 'Environment variable CSRF_COOKIE_DOMAIN is missing')
+assert(process.env.CSRF_COOKIE_NAME, 'Environment variable CSRF_COOKIE_NAME is missing')
 assert(process.env.ALLOW_ORIGIN_REGEX, 'Environment variable ALLOW_ORIGIN_REGEX is missing')
 assert(process.env.ORIGIN, 'Environment variable ORIGIN is missing')
 assert(process.env.CLIENT_ID, 'Environment variable CLIENT_ID is missing')
@@ -101,8 +102,10 @@ const config: oauthClient.Configuration = new oauthClient.Configuration(
   process.env.CLIENT_ID,
   process.env.CLIENT_SECRET)
 
+app.set('view engine', 'ejs')
+
 app.get('/', (req: Request, res: Response) => {
-  res.send('<h1>Receipt Printer API Server</h1><a href="login">Click here to authenticate with Receipt Printer API Server by way of RC OAuth.</a><br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.')
+  res.render('index', { name: req.session.rcName })
 })
 
 app.get('/login', (req: Request, res: Response) => {
@@ -143,6 +146,12 @@ app.get('/login', (req: Request, res: Response) => {
   res.redirect(oauthClient.buildAuthorizationUrl(config, parameters).toString())
 })
 
+app.get('/logout', (req: Request, res: Response) => {
+  req.session = null
+  res.clearCookie(process.env.CSRF_COOKIE_NAME)
+  res.redirect('/')
+})
+
 app.get('/callback', async (req: Request, res: Response) => {
   const currentURL = new URL(process.env.ORIGIN + req.originalUrl)
   const tokens = await oauthClient.authorizationCodeGrant(
@@ -156,11 +165,12 @@ app.get('/callback', async (req: Request, res: Response) => {
     'GET')
   const me = await meRes.json()
   req.session.rcId = me.id
+  req.session.rcName = me.name
   const tomorrow: Date = new Date(Date.now() + maxAge)
   req.session.id = crypto.randomUUID()
   req.session.expiresAt = tomorrow
   const csrfToken = csrf.generateToken(req.session.id)
-  res.cookie('receipt_csrf', csrfToken, {
+  res.cookie(process.env.CSRF_COOKIE_NAME, csrfToken, {
     // Readable by client-side JS.
     httpOnly: false,
     // Accessible by frontends served from a subdomain of the parent domain.
@@ -170,12 +180,7 @@ app.get('/callback', async (req: Request, res: Response) => {
     // The CSRF token cookie does not need to be signed.
     signed: false,
   })
-  if (req.session.redirectUri) {
-    res.redirect(req.session.redirectUri)
-  } else {
-    const goBackHtml = `go back from whence you came: <a href="${req.session.referer}">${req.session.referer}</a>`
-    res.send(`<br>Hello, <strong>${me.first_name}</strong>! You are now authenticated with Receipt Printer API Server.<br><br>${req.session.referer ? goBackHtml : ''}<br><br><br><br><br>This site is under construction. Check out the <a href="https://github.com/aycyang/receipt-api-server">source code</a>.`)
-  }
+  res.redirect(req.session.redirectUri ?? '/')
 })
 
 app.options('/status', (req, res) => res.sendStatus(204))
