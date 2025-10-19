@@ -1,29 +1,33 @@
 /**
  * TODO
- * - document redirect_uri (10 min)
- * - only show login link on receipt.recurse.com homepage if there's no session
- *   cookie (20 min)
  * - write deployment command (no watch) and systemd config to start on boot
  *   (10 min)
- * - generate docs using js docstring (10 min)
- * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
- *   it, then send it to the printer (1 hour)
+ *
  * - check for csrf token in more places: header names other than X-CSRF-Token,
  *   in hidden form inputs (20 min)
- * - look into adding GET routes for two-way communication with printer. for
- *   example, there is a command to get paper sensor status (40 min)
+ * - write a simple frontend web app that submits a form to receipt API and
+ *   deploy it to disco (30 min)
  * - text endpoint: add validation to check that characters are exclusively
  *   printable ascii, etc. (20 min)
  * - text endpoint: add some formatting options (e.g. font selection,
  *   horiz/vertical stretching, justification, upside down, bold, color
  *   inversion, underline, strikethrough) (20 min)
+ *
+ * - generate docs using js docstring, maybe with comment-parser (30 min)
+ * - document redirect_uri (10 min)
+ *
+ * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
+ *   it, then send it to the printer (1 hour)
+ * - look into adding GET routes for two-way communication with printer. for
+ *   example, there is a command to get paper sensor status (40 min)
  * - image endpoint: send me a jpg/png/gif and I validate, resize, preprocess
  *   and print it (with dry-run/preview option?) (hard to make this composable
  *   with text and other esc/pos commands, but should be useful for people who
  *   just want a no-fuss way to print an image) (2 hours)
+ *
  * - secret key rotation (30 min)
  * - investigate if concurrent requests can interfere with each other (30 min)
- * - some kind of audit log
+ * - some kind of audit log (1 hour)
  * - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
  * - set up test with mock oauth provider (1 hour)
  *
