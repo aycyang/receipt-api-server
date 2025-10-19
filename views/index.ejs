@@ -5,3 +5,10 @@
 <% } else { %>
 <p>Welcome! <a href="/login">Log in</a></p>
 <% } %>
+<script>
+const intendedOrigin = '<%= origin %>'
+const actualOrigin = window.location.origin
+if (intendedOrigin !== actualOrigin) {
+  window.location.href = intendedOrigin
+}
+</script>

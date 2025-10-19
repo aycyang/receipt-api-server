@@ -23,9 +23,6 @@
  *   just want a no-fuss way to print an image) (2 hours)
  * - secret key rotation (30 min)
  * - investigate if concurrent requests can interfere with each other (30 min)
- * - if not receipt.recurse.com, redirect to it (20 min)
- *   - add a bit of client-side JS that will check the origin and redirect if
- *     it's not env.origin
  * - some kind of audit log
  * - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
  * - set up test with mock oauth provider (1 hour)
@@ -94,7 +91,7 @@ const config: oauthClient.Configuration = new oauthClient.Configuration(
 app.set('view engine', 'ejs')
 
 app.get('/', (req: Request, res: Response) => {
-  res.render('index', { name: req.session.rcName })
+  res.render('index', { name: req.session.rcName, origin: env.origin })
 })
 
 app.get('/login', (req: Request, res: Response) => {
