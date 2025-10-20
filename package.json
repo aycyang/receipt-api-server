@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "npx tsx --env-file .env --watch src/index.ts",
+    "prod": "npx tsx --env-file .env src/index.ts",
     "typecheck": "npx tsc --noEmit"
   },
   "keywords": [],

@@ -1,8 +1,5 @@
 /**
  * TODO
- * - write deployment command (no watch) and systemd config to start on boot
- *   (10 min)
- *
  * - check for csrf token in more places: header names other than X-CSRF-Token,
  *   in hidden form inputs (20 min)
  * - write a simple frontend web app that submits a form to receipt API and
