@@ -1,1 +1,16 @@
-<p>these are the docs</p>
+<div>
+<h3>/login</h3>
+<p>Starts OAuth authorization code flow. After this is complete, a client application will be allowed to make authenticated HTTP requests to Receipt API Server by calling `fetch()` with the option `{credentials: &#39;include&#39;}`.</p>
+<ul>
+<li>redirect_uri: URL? - The URL to redirect back to after authentication is complete. Must be a *.recurse.com subdomain.</li>
+</ul>
+</div>
+
+<div>
+<h3>/text</h3>
+<p>Print text to the printer.</p>
+<ul>
+<li>text: string - May only contain ASCII characters in the range 32-126.</li>
+<li>bold: boolean? - </li>
+</ul>
+</div>

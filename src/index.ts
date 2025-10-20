@@ -9,8 +9,9 @@
 //   horiz/vertical stretching, justification, upside down, bold, color
 //   inversion, underline, strikethrough) (20 min)
 //
-// - generate docs using js docstring, maybe with comment-parser (30 min)
-// - document redirect_uri (10 min)
+// - parse markdown from docstrings
+// - show method
+// - document cross-origin considerations
 //
 // - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
 //   it, then send it to the printer (1 hour)
@@ -96,11 +97,11 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 /**
- * @method GET
- * @name /login
  * Starts OAuth authorization code flow. After this is complete, a client
  * application will be allowed to make authenticated HTTP requests to Receipt
  * API Server by calling `fetch()` with the option `{credentials: 'include'}`.
+ * @route /login
+ * @method GET
  * @param {URL?} redirect_uri The URL to redirect back to after
  *                            authentication is complete. Must be a
  *                            *.recurse.com subdomain.
@@ -190,9 +191,11 @@ app.get('/status',
 )
 
 /**
- * POST /text
- * Content-Type application/json
- * @param text May only contain ASCII characters in the range 32-126.
+ * Print text to the printer.
+ * @route /text
+ * @method POST
+ * @param {string} text May only contain ASCII characters in the range 32-126.
+ * @param {boolean?} bold
  */
 app.options('/text', (req, res) => res.sendStatus(204))
 app.post('/text',
