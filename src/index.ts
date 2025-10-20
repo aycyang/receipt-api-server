@@ -73,6 +73,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 
+// Support CORS preflight requests on all endpoints.
+app.options(/.*/, (req, res) => res.sendStatus(204))
+
 const csrf = new Csrf(secretKeys)
 
 const noopMiddleware = (req, res, next) => next()
@@ -182,7 +185,6 @@ app.get('/callback', async (req: Request, res: Response) => {
   res.redirect(req.session.redirectUri ?? '/')
 })
 
-app.options('/status', (req, res) => res.sendStatus(204))
 app.get('/status',
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   (req, res) => {
@@ -200,7 +202,6 @@ app.get('/status',
  * @param {string} text May only contain ASCII characters in the range 32-126.
  * @param {boolean?} bold
  */
-app.options('/text', (req, res) => res.sendStatus(204))
 app.post('/text',
   express.json(),
   express.urlencoded(),
@@ -228,7 +229,6 @@ app.post('/text',
  * @method POST
  * @type application/octet-stream
  */
-app.options('/escpos', (req, res) => res.sendStatus(204))
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream' }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
