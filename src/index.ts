@@ -223,6 +223,82 @@ app.post('/text',
 })
 
 /**
+ * Print an image. Only accepts P4 .pbm format right now. (Future: If it's
+ * wider than 512px across, it will be shrunk down to be 512px wide, preserving
+ * aspect ratio. If it's not black and white, it will be converted to a black
+ * and white dithered image.)
+ * @route /image
+ * @method POST
+ * @type image/jpeg
+ * @type image/png
+ * @type image/gif
+ * @type application/octet-stream
+ */
+app.post('/image',
+  express.raw({ type: 'application/octet-stream' }),
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
+  let firstNewline = 0
+  let secondNewline = 0
+  for (let i = 0; i < req.body.length; i++) {
+    if (req.body[i] == 10) { // 10 is ASCII line feed (LF)
+      firstNewline = i
+      break
+    }
+  }
+  for (let i = firstNewline + 1; i < req.body.length; i++) {
+    if (req.body[i] == 10) { // 10 is ASCII line feed (LF)
+      secondNewline = i
+      break
+    }
+  }
+  const firstLine = req.body.subarray(0, firstNewline).toString()
+  const secondLine = req.body.subarray(firstNewline + 1, secondNewline).toString()
+  const [width, height] = secondLine.split(' ').map(n => parseInt(n, '10'))
+  if (firstLine !== 'P4') {
+    res.status(400).json({error: '.pbm image must start with P4'})
+    return
+  }
+  // TODO use large format escpos bitmap command format
+  if (width > 512) {
+    res.status(400).json({error: 'width must be 512px or less'})
+    return
+  }
+  if (height > 1024) {
+    res.status(400).json({error: 'height must be 1024px or less'})
+    return
+  }
+  const widthBytes = Math.floor((width + 7) / 8)
+  const p = widthBytes * height + 10
+  const pLow = p & 0xff
+  const pHigh = p >> 8
+  const wLow = width & 0xff
+  const wHigh = width >> 8
+  const hLow = height & 0xff
+  const hHigh = height >> 8
+  const data = req.body.subarray(secondNewline + 1)
+  const escpos = Buffer.from([
+    0x1b, 0x40, // initialize printer
+    0x1d, 0x28, 0x4c,
+    pLow, pHigh,
+    0x30, 0x70, 0x30, 0x01, 0x01, 0x31,
+    wLow, wHigh, hLow, hHigh,
+    ...data,
+    0x1d, 0x28, 0x4c, 0x02, 0x00, 0x30, 0x32, 0x00, // print what's in the buffer
+    0x1b, 0x64, 0x06, // feed 6 lines
+    0x1d, 0x56, 0x00, // cut
+  ])
+  fs.writeFile(env.outFile, escpos, err => {
+    if (err) {
+      console.error(err)
+    } else {
+      console.log(`image: wrote ${req.body.length} bytes to ${env.outFile}`)
+    }
+  })
+  res.json({})
+})
+
+/**
  * Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in
  * the request body.
  * @route /escpos
