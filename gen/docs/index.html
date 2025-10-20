@@ -20,6 +20,12 @@
 </div>
 
 <div>
+<h2>POST /image</h2>
+<p>Content-Type: image/jpeg OR image/png OR image/gif OR application/octet-stream</p>
+<p>Print an image. Only accepts P4 .pbm format right now. (Future: If it&#39;s wider than 512px across, it will be shrunk down to be 512px wide, preserving aspect ratio. If it&#39;s not black and white, it will be converted to a black and white dithered image.)</p>
+</div>
+
+<div>
 <h2>POST /escpos</h2>
 <p>Content-Type: application/octet-stream</p>
 <p>Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in the request body.</p>
