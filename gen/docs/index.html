@@ -1,16 +1,26 @@
+<h1>Receipt Printer API Documentation</h1>
 <div>
-<h3>/login</h3>
+<h2>GET /login</h2>
 <p>Starts OAuth authorization code flow. After this is complete, a client application will be allowed to make authenticated HTTP requests to Receipt API Server by calling `fetch()` with the option `{credentials: &#39;include&#39;}`.</p>
+<p><strong>Parameters:</strong></p>
 <ul>
 <li>redirect_uri: URL? - The URL to redirect back to after authentication is complete. Must be a *.recurse.com subdomain.</li>
 </ul>
 </div>
 
 <div>
-<h3>/text</h3>
+<h2>POST /text</h2>
+<p>Content-Type: application/json OR application/x-www-form-urlencoded</p>
 <p>Print text to the printer.</p>
+<p><strong>Parameters:</strong></p>
 <ul>
 <li>text: string - May only contain ASCII characters in the range 32-126.</li>
 <li>bold: boolean? - </li>
 </ul>
+</div>
+
+<div>
+<h2>POST /escpos</h2>
+<p>Content-Type: application/octet-stream</p>
+<p>Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in the request body.</p>
 </div>

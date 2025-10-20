@@ -1,4 +1,5 @@
 // TODO
+// - check in a sample .env file
 // - check for csrf token in more places: header names other than X-CSRF-Token,
 //   in hidden form inputs (20 min)
 // - write a simple frontend web app that submits a form to receipt API and
@@ -194,6 +195,8 @@ app.get('/status',
  * Print text to the printer.
  * @route /text
  * @method POST
+ * @type application/json
+ * @type application/x-www-form-urlencoded
  * @param {string} text May only contain ASCII characters in the range 32-126.
  * @param {boolean?} bold
  */
@@ -218,7 +221,13 @@ app.post('/text',
   res.json({})
 })
 
-// Handle CORS preflight requests.
+/**
+ * Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in
+ * the request body.
+ * @route /escpos
+ * @method POST
+ * @type application/octet-stream
+ */
 app.options('/escpos', (req, res) => res.sendStatus(204))
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream' }),
