@@ -1,38 +1,36 @@
-/**
- * TODO
- * - check for csrf token in more places: header names other than X-CSRF-Token,
- *   in hidden form inputs (20 min)
- * - write a simple frontend web app that submits a form to receipt API and
- *   deploy it to disco (30 min)
- * - text endpoint: add validation to check that characters are exclusively
- *   printable ascii, etc. (20 min)
- * - text endpoint: add some formatting options (e.g. font selection,
- *   horiz/vertical stretching, justification, upside down, bold, color
- *   inversion, underline, strikethrough) (20 min)
- *
- * - generate docs using js docstring, maybe with comment-parser (30 min)
- * - document redirect_uri (10 min)
- *
- * - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
- *   it, then send it to the printer (1 hour)
- * - look into adding GET routes for two-way communication with printer. for
- *   example, there is a command to get paper sensor status (40 min)
- * - image endpoint: send me a jpg/png/gif and I validate, resize, preprocess
- *   and print it (with dry-run/preview option?) (hard to make this composable
- *   with text and other esc/pos commands, but should be useful for people who
- *   just want a no-fuss way to print an image) (2 hours)
- *
- * - secret key rotation (30 min)
- * - investigate if concurrent requests can interfere with each other (30 min)
- * - some kind of audit log (1 hour)
- * - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
- * - set up test with mock oauth provider (1 hour)
- *
- * TESTS
- * - can't read csrf token cross-site if not *.recurse.com subdomain
- * - send csrf token in hidden form input
- * - send csrf token as http header
- */
+// TODO
+// - check for csrf token in more places: header names other than X-CSRF-Token,
+//   in hidden form inputs (20 min)
+// - write a simple frontend web app that submits a form to receipt API and
+//   deploy it to disco (30 min)
+// - text endpoint: add validation to check that characters are exclusively
+//   printable ascii, etc. (20 min)
+// - text endpoint: add some formatting options (e.g. font selection,
+//   horiz/vertical stretching, justification, upside down, bold, color
+//   inversion, underline, strikethrough) (20 min)
+//
+// - generate docs using js docstring, maybe with comment-parser (30 min)
+// - document redirect_uri (10 min)
+//
+// - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
+//   it, then send it to the printer (1 hour)
+// - look into adding GET routes for two-way communication with printer. for
+//   example, there is a command to get paper sensor status (40 min)
+// - image endpoint: send me a jpg/png/gif and I validate, resize, preprocess
+//   and print it (with dry-run/preview option?) (hard to make this composable
+//   with text and other esc/pos commands, but should be useful for people who
+//   just want a no-fuss way to print an image) (2 hours)
+//
+// - secret key rotation (30 min)
+// - investigate if concurrent requests can interfere with each other (30 min)
+// - some kind of audit log (1 hour)
+// - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
+// - set up test with mock oauth provider (1 hour)
+//
+// TESTS
+// - can't read csrf token cross-site if not *.recurse.com subdomain
+// - send csrf token in hidden form input
+// - send csrf token as http header
 
 // Block access to the NodeJS global `process` object.
 // For environment variables, please use `env`.
@@ -50,6 +48,8 @@ import { env } from './env'
 const cors = require('cors')
 
 const app = express()
+
+app.use(express.static('gen'))
 
 // TODO rotate keys
 const secretKeys = [ env.secretKey ]
@@ -95,6 +95,16 @@ app.get('/', (req: Request, res: Response) => {
   res.render('index', { name: req.session.rcName, origin: env.origin })
 })
 
+/**
+ * @method GET
+ * @name /login
+ * Starts OAuth authorization code flow. After this is complete, a client
+ * application will be allowed to make authenticated HTTP requests to Receipt
+ * API Server by calling `fetch()` with the option `{credentials: 'include'}`.
+ * @param {URL?} redirect_uri The URL to redirect back to after
+ *                            authentication is complete. Must be a
+ *                            *.recurse.com subdomain.
+ */
 app.get('/login', (req: Request, res: Response) => {
   req.session.referer = req.header('Referer')
   // redirect_uri is an optional URL parameter which this server will redirect
@@ -179,8 +189,11 @@ app.get('/status',
   }
 )
 
-// TODO use same CORS rules for all endpoints
-// Handle CORS preflight requests.
+/**
+ * POST /text
+ * Content-Type application/json
+ * @param text May only contain ASCII characters in the range 32-126.
+ */
 app.options('/text', (req, res) => res.sendStatus(204))
 app.post('/text',
   express.json(),
