@@ -1,32 +1,116 @@
 <h1>Receipt Printer API Documentation</h1>
 <div>
-<h2>GET /login</h2>
-<p>Starts OAuth authorization code flow. After this is complete, a client application will be allowed to make authenticated HTTP requests to Receipt API Server by calling `fetch()` with the option `{credentials: &#39;include&#39;}`.</p>
-<p><strong>Parameters:</strong></p>
-<ul>
-<li>redirect_uri: URL? - The URL to redirect back to after authentication is complete. Must be a *.recurse.com subdomain.</li>
-</ul>
+  <h2>GET /login</h2>
+
+  <p>Authenticate with Receipt Printer API via Recurse Center OAuth.</p>
+  <p>Once the user has completed the OAuth flow, their browser receives two
+    cookies from Receipt Printer API: a session cookie and a CSRF token cookie.
+    The session cookie can only be seen by Receipt Printer API, while the CSRF
+    token cookie can be seen by any web app served from a
+    <code>*.recurse.com</code>
+    subdomain.</p>
+  <p>To make API calls to Receipt Printer API from your web app, you must do the
+    following:</p>
+  <ol>
+    <li>Your web app must be served from a <code>*.recurse.com</code> subdomain.
+      This is so
+      your web app can read the CSRF token cookie, which has
+      <code>Domain=.recurse.com</code>.</li>
+    <li>Before making any API calls to Receipt Printer API, you need to verify
+      that the user is authenticated with Receipt Printer API. To do so, simply
+      check for the presence of a cookie called <code>receipt_csrf</code>. If
+      the cookie is
+      not there, you should either redirect or provide a link to this
+      endpoint.</li>
+    <li>Once the user has authenticated with Receipt Printer API, your web app
+      will be able to see a cookie with key <code>receipt_csrf</code>. The value
+      of this
+      cookie needs to be included as a header <code>X-CSRF-Token</code> in all
+      HTTP requests
+      sent to Receipt Printer API, or as a hidden form input named
+      <code>_csrf</code>. This
+      proves that the API calls are coming a <code>*.recurse.com</code>
+      subdomain.</li>
+    <li>If you are making the HTTP request in JS (e.g. <code>fetch()</code>),
+      make sure to
+      set the option <code>{ credentials: 'include' }</code>, which tells the
+      browser to also
+      send Receipt Printer API the user's session cookie. If you don't do this,
+      Receipt Printer API will not see a session cookie, and thus will be unable
+      to verify that the user making the request is a Recurser.</li>
+  </ol>
+
+  <p><strong>Parameters:</strong></p>
+  <ul>
+
+    <li><code>redirect_uri: URL?</code> - The URL to redirect back to after
+      authentication is complete. Must be a
+      <code>*.recurse.com</code> subdomain.</li>
+
+  </ul>
+
 </div>
 
 <div>
-<h2>POST /text</h2>
-<p>Content-Type: application/json OR application/x-www-form-urlencoded</p>
-<p>Print text to the printer.</p>
-<p><strong>Parameters:</strong></p>
-<ul>
-<li>text: string - May only contain ASCII characters in the range 32-126.</li>
-<li>bold: boolean? - </li>
-</ul>
+  <h2>POST /text</h2>
+
+  <p>Print text to the printer.</p>
+
+  <p><strong>Accepted <code>Content-Type</code>:</strong></p>
+  <ul>
+
+    <li><code>application/json</code></li>
+
+    <li><code>application/x-www-form-urlencoded</code></li>
+
+  </ul>
+
+  <p><strong>Parameters:</strong></p>
+  <ul>
+
+    <li><code>text: string</code> - May only contain ASCII characters in the
+      range 32-126.</li>
+
+    <li><code>bold: boolean?</code> - </li>
+
+  </ul>
+
 </div>
 
 <div>
-<h2>POST /image</h2>
-<p>Content-Type: image/jpeg OR image/png OR image/gif OR application/octet-stream</p>
-<p>Print an image. Only accepts P4 .pbm format right now. (Future: If it&#39;s wider than 512px across, it will be shrunk down to be 512px wide, preserving aspect ratio. If it&#39;s not black and white, it will be converted to a black and white dithered image.)</p>
+  <h2>POST /image</h2>
+
+  <p>Print an image. Only accepts P4 .pbm format right now. (Future: If it's
+    wider than 512px across, it will be shrunk down to be 512px wide, preserving
+    aspect ratio. If it's not black and white, it will be converted to a black
+    and white dithered image.)</p>
+
+  <p><strong>Accepted <code>Content-Type</code>:</strong></p>
+  <ul>
+
+    <li><code>image/jpeg</code></li>
+
+    <li><code>image/png</code></li>
+
+    <li><code>image/gif</code></li>
+
+    <li><code>application/octet-stream</code></li>
+
+  </ul>
+
 </div>
 
 <div>
-<h2>POST /escpos</h2>
-<p>Content-Type: application/octet-stream</p>
-<p>Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in the request body.</p>
+  <h2>POST /escpos</h2>
+
+  <p>Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in
+    the request body.</p>
+
+  <p><strong>Accepted <code>Content-Type</code>:</strong></p>
+  <ul>
+
+    <li><code>application/octet-stream</code></li>
+
+  </ul>
+
 </div>

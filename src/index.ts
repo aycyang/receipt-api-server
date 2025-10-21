@@ -101,14 +101,39 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 /**
- * Starts OAuth authorization code flow. After this is complete, a client
- * application will be allowed to make authenticated HTTP requests to Receipt
- * API Server by calling `fetch()` with the option `{credentials: 'include'}`.
+ * Authenticate with Receipt Printer API via Recurse Center OAuth.
+ *
+ * Once the user has completed the OAuth flow, their browser receives two
+ * cookies from Receipt Printer API: a session cookie and a CSRF token cookie.
+ * The session cookie can only be seen by Receipt Printer API, while the CSRF
+ * token cookie can be seen by any web app served from a `*.recurse.com`
+ * subdomain.
+ *
+ * To make API calls to Receipt Printer API from your web app, you must do the
+ * following:
+ *
+ * 1. Your web app must be served from a `*.recurse.com` subdomain. This is so
+ * your web app can read the CSRF token cookie, which has
+ * `Domain=.recurse.com`.
+ * 2. Before making any API calls to Receipt Printer API, you need to verify
+ * that the user is authenticated with Receipt Printer API. To do so, simply
+ * check for the presence of a cookie called `receipt_csrf`. If the cookie is
+ * not there, you should either redirect or provide a link to this endpoint.
+ * 3. Once the user has authenticated with Receipt Printer API, your web app
+ * will be able to see a cookie with key `receipt_csrf`. The value of this
+ * cookie needs to be included as a header `X-CSRF-Token` in all HTTP requests
+ * sent to Receipt Printer API, or as a hidden form input named `_csrf`. This
+ * proves that the API calls are coming a `*.recurse.com` subdomain.
+ * 4. If you are making the HTTP request in JS (e.g. `fetch()`), make sure to
+ * set the option `{ credentials: 'include' }`, which tells the browser to also
+ * send Receipt Printer API the user's session cookie. If you don't do this,
+ * Receipt Printer API will not see a session cookie, and thus will be unable
+ * to verify that the user making the request is a Recurser.
  * @route /login
  * @method GET
  * @param {URL?} redirect_uri The URL to redirect back to after
  *                            authentication is complete. Must be a
- *                            *.recurse.com subdomain.
+ *                            `*.recurse.com` subdomain.
  */
 app.get('/login', (req: Request, res: Response) => {
   req.session.referer = req.header('Referer')
@@ -254,7 +279,7 @@ app.post('/image',
   }
   const firstLine = req.body.subarray(0, firstNewline).toString()
   const secondLine = req.body.subarray(firstNewline + 1, secondNewline).toString()
-  const [width, height] = secondLine.split(' ').map(n => parseInt(n, '10'))
+  const [width, height] = secondLine.split(' ').map(n => parseInt(n, 10))
   if (firstLine !== 'P4') {
     res.status(400).json({error: '.pbm image must start with P4'})
     return
