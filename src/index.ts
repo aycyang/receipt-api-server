@@ -47,6 +47,7 @@ import * as oauthClient from 'openid-client'
 import { Csrf } from './csrf'
 import * as escpos from './escpos'
 import { env } from './env'
+import {generate} from './escpos'
 const cors = require('cors')
 
 const app = express()
@@ -200,27 +201,34 @@ app.get('/status',
  * @type application/json
  * @type application/x-www-form-urlencoded
  * @param {string} text May only contain ASCII characters in the range 32-126.
+ * @param {number?} spacing Space between characters (0-255). Default 0.
+ * @param {boolean?} underline
  * @param {boolean?} bold
+ * @param {boolean?} strike Strikethrough.
+ * @param {string?} font "a" or "b". Default "a".
+ * @param {boolean?} rotate Rotate 90 degrees clockwise.
+ * @param {boolean?} upsideDown Print upside down.
+ * @param {boolean?} invert Invert colors (white on black).
  */
-app.post('/text',
+app.post(
+  "/text",
   express.json(),
   express.urlencoded(),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
-  const content = req.body.text
-  const buf = Buffer.from(
-    '\x1b\x40' + content + '\x1b\x64\x06' + '\x1d\x56\x00')
-  fs.writeFile(env.outFile, buf, err => {
-    if (err) {
-      console.error(err)
-    } else {
-      console.log(`text: wrote to ${env.outFile}`)
-    }
-  })
-  console.log(req.body)
-  console.log(`wrote to ${env.outFile}`)
-  res.json({})
-})
+    const buf = generate(req.body);
+    fs.writeFile(env.outFile, buf, (err) => {
+      if (err) {
+        console.error(err);
+      } else {
+        console.log(`text: wrote to ${env.outFile}`);
+      }
+    });
+    console.log(req.body);
+    console.log(`wrote to ${env.outFile}`);
+    res.json({});
+  }
+);
 
 /**
  * Print an image. Only accepts P4 .pbm format right now. (Future: If it's
