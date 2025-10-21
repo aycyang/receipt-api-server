@@ -1,6 +1,11 @@
 <h1>Receipt Printer API @ Recurse Center</h1>
 <% if (name) { %>
 <p>Hello, <strong><%= name %></strong>! You are now authorized to print! <a href="/logout">Log out</a></p>
+<p>Check out these cool websites that integrate with Receipt Printer API:</p>
+<ul>
+<li><a href="https://selfie.recurse.com">selfie.recurse.com</a></li>
+<li><a href="https://receipt-text.recurse.com">receipt-text.recurse.com</a></li>
+</ul>
 <% } else { %>
 <p>Welcome! Want to print receipts? <a href="/login">Log in</a></p>
 <% } %>
