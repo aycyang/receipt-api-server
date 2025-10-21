@@ -50,6 +50,7 @@ import { Csrf } from './csrf'
 import { env } from './env'
 import * as escpos from 'escpos'
 import * as escposDeprecated from './escpos-deprecated'
+import { Jimp } from 'jimp'
 const cors = require('cors')
 
 const app = express()
@@ -273,6 +274,97 @@ app.post(
   }
 );
 
+// copied from aycyang/receipt-printer-frontend
+function convertRgbaToBitmap(imageData) {
+  const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
+  const bitmap = [];
+  const paddedWidth = Math.floor((width + 7) / 8) * 8;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < paddedWidth; x++) {
+      if (x >= width) {
+        bitmap[bitmap.length - 1] = bitmap[bitmap.length - 1] << 1;
+        continue;
+      }
+      const r = data[y * width * 4 + x * 4]; // only use red value for now
+      if (x % 8 === 0) {
+        bitmap.push(0);
+      } else {
+        bitmap[bitmap.length - 1] = bitmap[bitmap.length - 1] << 1;
+      }
+
+      // hard split into black/white for now
+      if (r < 127) {
+        bitmap[bitmap.length - 1] = bitmap[bitmap.length - 1] | 1;
+      }
+    }
+  }
+  return bitmap
+}
+
+async function parsePng(pngBin: Buffer): Promise<Buffer> {
+  const img = await Jimp.fromBuffer(pngBin)
+  img.greyscale()
+  const bitmap = convertRgbaToBitmap(img.bitmap)
+  // TODO split raw data parsing into separate function
+  const header = `P4\n${img.bitmap.width} ${img.bitmap.height}\n`
+    .split('').map(c => c.charCodeAt(0))
+  const pbmBin = Buffer.from([...header, ...bitmap])
+  return parsePbmBin(pbmBin)
+}
+
+function parsePbmBin(pbmBin: Buffer): Buffer {
+  let firstNewline = 0
+  let secondNewline = 0
+  for (let i = 0; i < pbmBin.length; i++) {
+    if (pbmBin[i] == 10) { // 10 is ASCII line feed (LF)
+      firstNewline = i
+      break
+    }
+  }
+  for (let i = firstNewline + 1; i < pbmBin.length; i++) {
+    if (pbmBin[i] == 10) { // 10 is ASCII line feed (LF)
+      secondNewline = i
+      break
+    }
+  }
+  const firstLine = pbmBin.subarray(0, firstNewline).toString()
+  const secondLine = pbmBin.subarray(firstNewline + 1, secondNewline).toString()
+  const [width, height] = secondLine.split(' ').map(n => parseInt(n, 10))
+  if (firstLine !== 'P4') {
+    throw new Error('.pbm image must start with P4')
+  }
+  // TODO use large format escpos bitmap command format
+  if (width > 512) {
+    throw new Error('width must be 512px or less')
+  }
+  if (height > 1024) {
+    throw new Error('height must be 1024px or less')
+  }
+  const widthBytes = Math.floor((width + 7) / 8)
+  const p = widthBytes * height + 10
+  const pLow = p & 0xff
+  const pHigh = p >> 8
+  const wLow = width & 0xff
+  const wHigh = width >> 8
+  const hLow = height & 0xff
+  const hHigh = height >> 8
+  const data = pbmBin.subarray(secondNewline + 1)
+  return Buffer.from([
+    0x1b, 0x40, // initialize printer
+    0x1d, 0x28, 0x4c,
+    pLow, pHigh,
+    0x30, 0x70, 0x30, 0x01, 0x01, 0x31,
+    wLow, wHigh, hLow, hHigh,
+    ...data,
+    0x1d, 0x28, 0x4c, 0x02, 0x00, 0x30, 0x32, 0x00, // print what's in the buffer
+    0x1b, 0x64, 0x06, // feed 6 lines
+    0x1d, 0x56, 0x00, // cut
+  ])
+}
+
 /**
  * Print an image. Only accepts P4 .pbm format right now. (Future: If it's
  * wider than 512px across, it will be shrunk down to be 512px wide, preserving
@@ -287,67 +379,32 @@ app.post(
  */
 app.post('/image',
   express.raw({ type: 'application/octet-stream' }),
+  express.raw({ type: 'image/png' }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
-  let firstNewline = 0
-  let secondNewline = 0
-  for (let i = 0; i < req.body.length; i++) {
-    if (req.body[i] == 10) { // 10 is ASCII line feed (LF)
-      firstNewline = i
-      break
+    let buf: Buffer
+    switch (req.header('Content-Type')) {
+      case 'application/octet-stream':
+        try {
+          buf = parsePbmBin(req.body)
+        } catch (error) {
+          res.status(400).json({error: error})
+          return
+        }
+        break
+      case 'image/png':
+        buf = await parsePng(req.body)
+        break
     }
-  }
-  for (let i = firstNewline + 1; i < req.body.length; i++) {
-    if (req.body[i] == 10) { // 10 is ASCII line feed (LF)
-      secondNewline = i
-      break
-    }
-  }
-  const firstLine = req.body.subarray(0, firstNewline).toString()
-  const secondLine = req.body.subarray(firstNewline + 1, secondNewline).toString()
-  const [width, height] = secondLine.split(' ').map(n => parseInt(n, 10))
-  if (firstLine !== 'P4') {
-    res.status(400).json({error: '.pbm image must start with P4'})
-    return
-  }
-  // TODO use large format escpos bitmap command format
-  if (width > 512) {
-    res.status(400).json({error: 'width must be 512px or less'})
-    return
-  }
-  if (height > 1024) {
-    res.status(400).json({error: 'height must be 1024px or less'})
-    return
-  }
-  const widthBytes = Math.floor((width + 7) / 8)
-  const p = widthBytes * height + 10
-  const pLow = p & 0xff
-  const pHigh = p >> 8
-  const wLow = width & 0xff
-  const wHigh = width >> 8
-  const hLow = height & 0xff
-  const hHigh = height >> 8
-  const data = req.body.subarray(secondNewline + 1)
-  const escpos = Buffer.from([
-    0x1b, 0x40, // initialize printer
-    0x1d, 0x28, 0x4c,
-    pLow, pHigh,
-    0x30, 0x70, 0x30, 0x01, 0x01, 0x31,
-    wLow, wHigh, hLow, hHigh,
-    ...data,
-    0x1d, 0x28, 0x4c, 0x02, 0x00, 0x30, 0x32, 0x00, // print what's in the buffer
-    0x1b, 0x64, 0x06, // feed 6 lines
-    0x1d, 0x56, 0x00, // cut
-  ])
-  fs.writeFile(env.outFile, escpos, err => {
-    if (err) {
-      console.error(err)
-    } else {
-      console.log(`image: wrote ${req.body.length} bytes to ${env.outFile}`)
-    }
+    fs.writeFile(env.outFile, buf, err => {
+      if (err) {
+        console.error(err)
+      } else {
+        console.log(`image: wrote ${buf.length} bytes to ${env.outFile}`)
+      }
+    })
+    res.json({})
   })
-  res.json({})
-})
 
 /**
  * Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in
