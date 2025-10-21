@@ -1,4 +1,4 @@
-# Recurse Center Receipt API Server
+# Receipt Printer API @ Recurse Center
 
 *This is a work in progress!*
 
@@ -10,7 +10,31 @@ A way for Recursers to interact with the receipt printer in the Recurse Center h
 - Anyone at RC can set up their own frontend that integrates with the receipt printer API
 - The receipt printer API should only accept requests from Recursers
 
-## Design sketch
+## Development environment setup
+
+1. Clone this repo
+1. `cp template.env .env`
+1. `npm install`
+1. `npm start`
+
+At this point there should be a server running at <http://localhost:3000> with authentication disabled. It watches `src/` and will automatically rebuild when anything changes.
+
+## How to integrate
+
+If you are developing a client web application and wish to integrate with Receipt Printer API, have a look at <https://receipt.recurse.com/docs>.
+
+## System administration
+
+High-level overview:
+
+- Thermal receipt printer is connected to Raspberry Pi via USB
+- Raspberry Pi is connected to RC LAN
+- A port on the Raspberry Pi is exposed on the public internet using [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
+- The Raspberry Pi has a non-root user with limited permissions named `printuser`
+- This repo is manually deployed and has a systemd user unit so that the server starts on boot: `git pull && npm install --omit=dev && systemctl --user restart receipt-api`
+- (planned) Automatic deploys via a Github Actions self-hosted runner.
+
+## Security architecture
 
 Let's say the receipt printer API is served from `https://receipt.recurse.com`. It will only accept requests if they come with 2 things: a session cookie and a CSRF token. The session cookie proves that the user is a Recurser. The CSRF token proves that the request came from a frontend served from a `*.recurse.com` subdomain. Next, I will cover how the session cookie and CSRF token are created, which will explain why they can prove these facts.
 
