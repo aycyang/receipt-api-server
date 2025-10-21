@@ -7,7 +7,8 @@
     "start": "npx tsx --env-file .env --watch src/index.ts",
     "prod": "npx tsx --env-file .env src/index.ts",
     "typecheck": "npx tsc --noEmit",
-    "generate": "node scripts/generate_docs.js"
+    "generate": "node scripts/generate_docs.js",
+    "test": ""
   },
   "keywords": [],
   "author": "",

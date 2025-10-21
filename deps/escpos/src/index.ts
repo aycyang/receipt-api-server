@@ -1,19 +1,50 @@
-enum Byte {
-  ESC = 0x1b,
-  '@' = 0x40,
-  '!' = 0x21,
-}
+import { Byte } from './byte'
 
 const escRules = {
-  [Byte['@']]: 0,
+  [Byte.FF]: 0,
+  [Byte.SP]: 1,
   [Byte['!']]: 1,
+  [Byte['$']]: 2,
+  [Byte['%']]: 0, // FIXME
+  [Byte['&']]: 0, // FIXME
+  [Byte['(']]: 0, // FIXME
+  [Byte['*']]: 0, // FIXME
+  [Byte['-']]: 0, // FIXME
+  [Byte['2']]: 0, // FIXME
+  [Byte['3']]: 0, // FIXME
+  [Byte['=']]: 0, // FIXME
+  [Byte['?']]: 0, // FIXME
+  [Byte['@']]: 0,
+  [Byte['D']]: 0, // FIXME
+  [Byte['E']]: 0, // FIXME
+  [Byte['G']]: 0, // FIXME
+  [Byte['J']]: 0, // FIXME
+  [Byte['L']]: 0, // FIXME
+  [Byte['M']]: 0, // FIXME
+  [Byte['R']]: 0, // FIXME
+  [Byte['S']]: 0, // FIXME
+  [Byte['T']]: 0, // FIXME
+  [Byte['V']]: 0, // FIXME
+  [Byte['W']]: 0, // FIXME
+  [Byte['\\']]: 0, // FIXME
+  [Byte['a']]: 0, // FIXME
+  [Byte['c']]: 0, // FIXME
+  [Byte['d']]: 0, // FIXME
+  [Byte['i']]: 0, // FIXME
+  [Byte['m']]: 0, // FIXME
+  [Byte['p']]: 0, // FIXME
+  [Byte['t']]: 0, // FIXME
+  [Byte['u']]: 0, // FIXME
+  [Byte['v']]: 0, // FIXME
+  [Byte['{']]: 0, // FIXME
 }
 
-const topLevelRules = {
-  [Byte.ESC]: escRules,
-  [Byte['@']]: 0,
-  [Byte['!']]: 0,
+type Rules = Record<Byte, number | object>
+const topLevelRules: Rules = {} as Rules
+for (const key in Byte) {
+  topLevelRules[Byte[key]] = 0
 }
+topLevelRules[Byte.ESC] = escRules
 
 export class Command {
   buf: Buffer

@@ -33,6 +33,12 @@ const testCases: Array<TestCase> = [
       new escpos.Command(Buffer.from([0x21])),
     ]
   },
+  {
+    in: Buffer.from([0x1b, 0x24, 0x00, 0x00]),
+    out: [
+      new escpos.Command(Buffer.from([0x1b, 0x24, 0x00, 0x00])),
+    ]
+  },
 ]
 
 function run(testCase: TestCase): boolean {
