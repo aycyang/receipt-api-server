@@ -47,9 +47,9 @@ import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import { Csrf } from './csrf'
-import * as escpos from './escpos'
 import { env } from './env'
-import {generate} from './escpos'
+import * as escpos from 'escpos'
+import * as escposDeprecated from './escpos-deprecated'
 const cors = require('cors')
 
 const app = express()
@@ -243,7 +243,7 @@ app.post(
   express.urlencoded(),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
-    const buf = generate(req.body);
+    const buf = escposDeprecated.generate(req.body);
     fs.writeFile(env.outFile, buf, (err) => {
       if (err) {
         console.error(err);
@@ -344,10 +344,12 @@ app.post('/escpos',
   express.raw({ type: 'application/octet-stream' }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
-  if (!escpos.validate(req.body)) {
-    console.log('invalid escpos: ' + req.body)
-    res.status(400).json({error: 'invalid escpos'})
-    return
+  try {
+    const cmds = escpos.parse(req.body)
+    // TODO the parser isn't complete yet, so we just log the result here for reference
+    console.log('parsed commands:', cmds)
+  } catch (error) {
+    console.error(error)
   }
   fs.writeFile(env.outFile, req.body, err => {
     if (err) {
