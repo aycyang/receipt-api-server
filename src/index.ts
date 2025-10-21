@@ -229,6 +229,8 @@ app.get('/status',
  * @type application/x-www-form-urlencoded
  * @param {string} text May only contain ASCII characters in the range 32-126.
  * @param {number?} spacing Space between characters (0-255). Default 0.
+ * @param {number?} scaleWidth Scale text horizontally (0-7). Default 0.
+ * @param {number?} scaleHeight Scale text vertically (0-7). Default 0.
  * @param {boolean?} underline
  * @param {boolean?} bold
  * @param {boolean?} strike Strikethrough.
@@ -243,7 +245,21 @@ app.post(
   express.urlencoded(),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
-    const buf = escposDeprecated.generate(req.body);
+    const b = new escposDeprecated.EscPosBuilder();
+    const buf = b
+      .spacing(req.body.spacing || 0)
+      .scale(req.body.scaleWidth || 0, req.body.scaleHeight || 0)
+      .underline(!!req.body.underline)
+      .bold(!!req.body.bold)
+      .strike(!!req.body.strike)
+      .font(req.body.font === "b" ? "b" : "a")
+      .rotate(!!req.body.rotate)
+      .upsideDown(!!req.body.upsideDown)
+      .invert(!!req.body.invert)
+      .text(req.body.text || "")
+      .printAndFeed(6)
+      .cut()
+      .build();
     fs.writeFile(env.outFile, buf, (err) => {
       if (err) {
         console.error(err);
