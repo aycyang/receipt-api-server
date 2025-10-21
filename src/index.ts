@@ -1,33 +1,35 @@
 // TODO
-// - check in a sample .env file
+// - /image
+//   - use jimp
+//   - jpg/png/gif support
+//   - if too large: resize
+//   - if color: increase brightness and dither
+//   - optional boolean for dry-run/print-preview
+// - /text
+//   - validate characters are exclusively in range 32-126
+// - /escpos
+//   - parse and validate before sending to printer (err on being more lenient)
+// - /status
+//   - look into printer real-time transmit status command
 // - check for csrf token in more places: header names other than X-CSRF-Token,
 //   in hidden form inputs (20 min)
-// - write a simple frontend web app that submits a form to receipt API and
-//   deploy it to disco (30 min)
-// - text endpoint: add validation to check that characters are exclusively
-//   printable ascii, etc. (20 min)
-// - text endpoint: add some formatting options (e.g. font selection,
-//   horiz/vertical stretching, justification, upside down, bold, color
-//   inversion, underline, strikethrough) (20 min)
-//
-// - parse markdown from docstrings
-// - show method
-// - document cross-origin considerations
-//
-// - raw esc/pos endpoint: send me raw esc/pos bytes and I parse and validate
-//   it, then send it to the printer (1 hour)
-// - look into adding GET routes for two-way communication with printer. for
-//   example, there is a command to get paper sensor status (40 min)
-// - image endpoint: send me a jpg/png/gif and I validate, resize, preprocess
-//   and print it (with dry-run/preview option?) (hard to make this composable
-//   with text and other esc/pos commands, but should be useful for people who
-//   just want a no-fuss way to print an image) (2 hours)
 //
 // - secret key rotation (30 min)
 // - investigate if concurrent requests can interfere with each other (30 min)
 // - some kind of audit log (1 hour)
 // - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
 // - set up test with mock oauth provider (1 hour)
+//
+// - archival scanning automation (auto straightening/image stitching tools)
+// - online gallery/rss feed
+// - automatic deploys (github actions self-hosted runner?)
+// - staging environment (maybe it prints to an emulator or a file)
+// - automated testing (selenium against staging?)
+// - troubleshooting guide (on homepage)
+// - development guide (in readme)
+//   - check in a sample .env file
+// - sysadmin/provisioning guide (in readme)
+// - status monitoring (ping /status endpoint? need bidi usb communication)
 //
 // TESTS
 // - can't read csrf token cross-site if not *.recurse.com subdomain
