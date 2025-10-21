@@ -122,9 +122,9 @@ app.get('/', (req: Request, res: Response) => {
  * not there, you should either redirect or provide a link to this endpoint.
  * 3. Once the user has authenticated with Receipt Printer API, your web app
  * will be able to see a cookie with key `receipt_csrf`. The value of this
- * cookie needs to be included as a header `X-CSRF-Token` in all HTTP requests
- * sent to Receipt Printer API, or as a hidden form input named `_csrf`. This
- * proves that the API calls are coming a `*.recurse.com` subdomain.
+ * cookie needs to be included as a header `X-CSRF-Token` or as a hidden form
+ * input named `_csrf` in any HTTP requests sent to Receipt Printer API. This
+ * serves as proof that the API calls are coming a `*.recurse.com` subdomain.
  * 4. If you are making the HTTP request in JS (e.g. `fetch()`), make sure to
  * set the option `{ credentials: 'include' }`, which tells the browser to also
  * send Receipt Printer API the user's session cookie. If you don't do this,

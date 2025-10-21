@@ -25,11 +25,11 @@
     <li>Once the user has authenticated with Receipt Printer API, your web app
       will be able to see a cookie with key <code>receipt_csrf</code>. The value
       of this
-      cookie needs to be included as a header <code>X-CSRF-Token</code> in all
-      HTTP requests
-      sent to Receipt Printer API, or as a hidden form input named
-      <code>_csrf</code>. This
-      proves that the API calls are coming a <code>*.recurse.com</code>
+      cookie needs to be included as a header <code>X-CSRF-Token</code> or as a
+      hidden form
+      input named <code>_csrf</code> in any HTTP requests sent to Receipt
+      Printer API. This
+      serves as proof that the API calls are coming a <code>*.recurse.com</code>
       subdomain.</li>
     <li>If you are making the HTTP request in JS (e.g. <code>fetch()</code>),
       make sure to

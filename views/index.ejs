@@ -1,10 +1,12 @@
 <h1>Receipt Printer API @ Recurse Center</h1>
-<p><a href="docs">docs</a></p>
 <% if (name) { %>
-<p>Hello, <%= name %>! <a href="/logout">Log out</a></p>
+<p>Hello, <strong><%= name %></strong>! You are now authorized to print! <a href="/logout">Log out</a></p>
 <% } else { %>
-<p>Welcome! <a href="/login">Log in</a></p>
+<p>Welcome! Want to print receipts? <a href="/login">Log in</a></p>
 <% } %>
+<p>If you are developing a client web application and wish to integrate with Receipt Printer API, have a look at this <a href="docs">documentation</a>.</p>
+<p>Receipt Printer API was created at <a href="https://www.recurse.com">The Recurse Center</a> in Fall 1, 2025.</p>
+<p><a href="https://github.com/aycyang/receipt-api-server">Contributions are welcome!</a></p>
 <script>
 const intendedOrigin = '<%= origin %>'
 const actualOrigin = window.location.origin
