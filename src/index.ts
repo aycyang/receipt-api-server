@@ -50,7 +50,7 @@ import * as oauthClient from 'openid-client'
 import { Csrf } from './csrf'
 import { env } from './env'
 import * as image from './image'
-import * as escpos from 'escpos'
+import * as escpos from 'escpos-ts'
 import * as escposDeprecated from './escpos-deprecated'
 const cors = require('cors')
 
@@ -340,13 +340,6 @@ app.post('/escpos',
   express.raw({ type: 'application/octet-stream' }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
-  try {
-    const cmds = escpos.parse(req.body)
-    // TODO the parser isn't complete yet, so we just log the result here for reference
-    console.log('parsed commands:', cmds)
-  } catch (error) {
-    console.error(error)
-  }
   fs.writeFile(env.outFile, req.body, err => {
     if (err) {
       console.error(err)
