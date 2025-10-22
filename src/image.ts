@@ -37,6 +37,22 @@ function convertRgbaToPbmData(imageData): Buffer {
   return Buffer.from(bitmap)
 }
 
+function isBlackAndWhite(img): boolean {
+  for (let i = 0; i < img.bitmap.width * img.bitmap.height; i++) {
+    const r = img.bitmap.data[i * 4]
+    const g = img.bitmap.data[i * 4 + 1]
+    const b = img.bitmap.data[i * 4 + 2]
+    const a = img.bitmap.data[i * 4 + 3]
+    if (r !== g || g !== b || r !== b) {
+      return false
+    }
+    if (r !== 0 && r !== 255) {
+      return false
+    }
+  }
+  return true
+}
+
 function bayer4(img) {
   img.greyscale()
   const m = [
@@ -65,7 +81,9 @@ async function parseImg(imgBin: Buffer): Promise<Buffer> {
   if (img.bitmap.width > 512) {
     img.resize({w: 512})
   }
-  bayer4(img)
+  if (!isBlackAndWhite(img)) {
+    bayer4(img)
+  }
   const pbmData = convertRgbaToPbmData(img.bitmap)
   return parsePbmData(pbmData, img.bitmap.width, img.bitmap.height)
 }
