@@ -48,9 +48,9 @@ import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
 import { Csrf } from './csrf'
 import { env } from './env'
+import * as image from './image'
 import * as escpos from 'escpos'
 import * as escposDeprecated from './escpos-deprecated'
-import { Jimp } from 'jimp'
 const cors = require('cors')
 
 const app = express()
@@ -274,99 +274,12 @@ app.post(
   }
 );
 
-// largely copied from aycyang/receipt-printer-frontend
-function convertRgbaToPbmData(imageData): Buffer {
-  const data = imageData.data;
-  const width = imageData.width;
-  const height = imageData.height;
-  const bitmap = [];
-  const paddedWidth = Math.floor((width + 7) / 8) * 8;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < paddedWidth; x++) {
-      if (x >= width) {
-        bitmap[bitmap.length - 1] = bitmap[bitmap.length - 1] << 1;
-        continue;
-      }
-      const r = data[y * width * 4 + x * 4]; // only use red value for now
-      if (x % 8 === 0) {
-        bitmap.push(0);
-      } else {
-        bitmap[bitmap.length - 1] = bitmap[bitmap.length - 1] << 1;
-      }
-
-      // hard split into black/white for now
-      if (r < 127) {
-        bitmap[bitmap.length - 1] = bitmap[bitmap.length - 1] | 1;
-      }
-    }
-  }
-  return Buffer.from(bitmap)
-}
-
-async function parseImg(imgBin: Buffer): Promise<Buffer> {
-  const img = await Jimp.fromBuffer(imgBin)
-  img.greyscale()
-  const pbmData = convertRgbaToPbmData(img.bitmap)
-  return parsePbmData(pbmData, img.bitmap.width, img.bitmap.height)
-}
-
-function parsePbmBin(pbmBin: Buffer): Buffer {
-  let firstNewline = 0
-  let secondNewline = 0
-  for (let i = 0; i < pbmBin.length; i++) {
-    if (pbmBin[i] == 10) { // 10 is ASCII line feed (LF)
-      firstNewline = i
-      break
-    }
-  }
-  for (let i = firstNewline + 1; i < pbmBin.length; i++) {
-    if (pbmBin[i] == 10) { // 10 is ASCII line feed (LF)
-      secondNewline = i
-      break
-    }
-  }
-  const firstLine = pbmBin.subarray(0, firstNewline).toString()
-  const secondLine = pbmBin.subarray(firstNewline + 1, secondNewline).toString()
-  const [width, height] = secondLine.split(' ').map(n => parseInt(n, 10))
-  if (firstLine !== 'P4') {
-    throw new Error('.pbm image file must start with P4')
-  }
-  const pbmData = pbmBin.subarray(secondNewline + 1)
-  return parsePbmData(pbmData, width, height)
-}
-function parsePbmData(pbmData: Buffer, width: number, height: number): Buffer {
-  if (width > 512) {
-    throw new Error('width must be 512px or less')
-  }
-  if (height > 1024) {
-    throw new Error('height must be 1024px or less')
-  }
-  const widthBytes = Math.floor((width + 7) / 8)
-  const p = widthBytes * height + 10
-  const pLow = p & 0xff
-  const pHigh = p >> 8
-  const wLow = width & 0xff
-  const wHigh = width >> 8
-  const hLow = height & 0xff
-  const hHigh = height >> 8
-  return Buffer.from([
-    0x1b, 0x40, // initialize printer
-    0x1d, 0x28, 0x4c,
-    pLow, pHigh,
-    0x30, 0x70, 0x30, 0x01, 0x01, 0x31,
-    wLow, wHigh, hLow, hHigh,
-    ...pbmData,
-    0x1d, 0x28, 0x4c, 0x02, 0x00, 0x30, 0x32, 0x00, // print what's in the buffer
-    0x1b, 0x64, 0x06, // feed 6 lines
-    0x1d, 0x56, 0x00, // cut
-  ])
-}
-
 /**
- * Print an image. Only accepts P4 .pbm format right now. (Future: If it's
- * wider than 512px across, it will be shrunk down to be 512px wide, preserving
- * aspect ratio. If it's not black and white, it will be converted to a black
- * and white dithered image.)
+ * Print an image. See supported Content-Type for supported image format. For
+ * .pbm, use application/octet-stream. (Future: If it's wider than 512px
+ * across, it will be shrunk down to be 512px wide, preserving aspect ratio. If
+ * it's not black and white, it will be converted to a black and white dithered
+ * image.)
  * @route /image
  * @method POST
  * @type image/tiff
@@ -389,24 +302,16 @@ app.post('/image',
   ] }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
+    if (!req.body) {
+      res.status(400).json({error: 'unsupported Content-Type'})
+      return
+    }
     let buf: Buffer
-    switch (req.header('Content-Type')) {
-      case 'application/octet-stream':
-        try {
-          buf = parsePbmBin(req.body)
-        } catch (error) {
-          res.status(400).json({error: error})
-          return
-        }
-        break
-      case 'image/tiff':
-      case 'image/jpeg':
-      case 'image/png':
-      case 'image/gif':
-      case 'image/bmp':
-      case 'image/x-ms-bmp':
-        buf = await parseImg(req.body)
-        break
+    try {
+      buf = await image.generateEscPos(req.body)
+    } catch (error) {
+      res.status(400).json({error: error})
+      return
     }
     fs.writeFile(env.outFile, buf, err => {
       if (err) {
@@ -417,6 +322,7 @@ app.post('/image',
     })
     res.json({})
   })
+
 
 /**
  * Send raw ESC/POS bytes to the printer. Pass the ESC/POS bytes directly in
