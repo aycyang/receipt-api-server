@@ -222,6 +222,65 @@ app.get('/status',
 )
 
 /**
+ * Print multiple text blocks to the printer.
+ * @route /textblocks
+ * @method POST
+ * @type application/json
+ * @type application/x-www-form-urlencoded
+ * @param {TextBlock} textblocks
+ */
+app.post(
+  "/textblocks",
+  express.json(),
+  express.urlencoded(),
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
+    // TODO: input verification
+    const b = new escposDeprecated.EscPosBuilder();
+    req.body.textblocks.forEach(block => {
+      b.spacing(block.spacing || 0)
+      .scale(block.scaleWidth || 0, block.scaleHeight || 0)
+      .underline(!!block.underline)
+      .bold(!!block.bold)
+      .strike(!!block.strike)
+      .font(block.font === "b" ? "b" : "a")
+      .rotate(!!block.rotate)
+      .upsideDown(!!block.upsideDown)
+      .invert(!!block.invert)
+      .text(block.text || "")
+
+      switch (block.concat) {
+        case "cut":
+          b.printAndFeed(6);
+          b.cut()
+          break;
+        case "space":
+          b.text(" ")
+          break;
+        case "newline":
+          b.printAndFeed(1);
+          break;
+        case "nospace":
+        default:
+          break;
+      }
+    })
+    const buf = b.build();
+
+    fs.writeFile(env.outFile, buf, (err) => {
+      if (err) {
+        console.error(err);
+      } else {
+        console.log(`text: wrote to ${env.outFile}`);
+      }
+    });
+    console.log(req.body);
+    console.log(`wrote to ${env.outFile}`);
+    res.json({});
+  }
+);
+
+/**
  * Print text to the printer.
  * @route /text
  * @method POST
