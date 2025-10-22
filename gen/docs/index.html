@@ -74,6 +74,12 @@
     <li><code>spacing: number?</code> - Space between characters (0-255).
       Default 0.</li>
 
+    <li><code>scaleWidth: number?</code> - Scale text horizontally (0-7).
+      Default 0.</li>
+
+    <li><code>scaleHeight: number?</code> - Scale text vertically (0-7). Default
+      0.</li>
+
     <li><code>underline: boolean?</code> - </li>
 
     <li><code>bold: boolean?</code> - </li>
@@ -96,19 +102,26 @@
 <div>
   <h2>POST /image</h2>
 
-  <p>Print an image. Only accepts P4 .pbm format right now. (Future: If it's
+  <p>Print an image. See supported Content-Type for supported image formats. For
+    .pbm, use application/octet-stream. For all other formats, if the image is
     wider than 512px across, it will be shrunk down to be 512px wide, preserving
     aspect ratio. If it's not black and white, it will be converted to a black
-    and white dithered image.)</p>
+    and white dithered image using a 4x4 Bayer matrix.</p>
 
   <p><strong>Accepted <code>Content-Type</code>:</strong></p>
   <ul>
+
+    <li><code>image/tiff</code></li>
 
     <li><code>image/jpeg</code></li>
 
     <li><code>image/png</code></li>
 
     <li><code>image/gif</code></li>
+
+    <li><code>image/bmp</code></li>
+
+    <li><code>image/x-ms-bmp</code></li>
 
     <li><code>application/octet-stream</code></li>
 

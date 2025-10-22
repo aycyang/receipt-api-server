@@ -276,11 +276,11 @@ app.post(
 );
 
 /**
- * Print an image. See supported Content-Type for supported image format. For
- * .pbm, use application/octet-stream. (Future: If it's wider than 512px
- * across, it will be shrunk down to be 512px wide, preserving aspect ratio. If
- * it's not black and white, it will be converted to a black and white dithered
- * image.)
+ * Print an image. See supported Content-Type for supported image formats. For
+ * .pbm, use application/octet-stream. For all other formats, if the image is
+ * wider than 512px across, it will be shrunk down to be 512px wide, preserving
+ * aspect ratio. If it's not black and white, it will be converted to a black
+ * and white dithered image using a 4x4 Bayer matrix.
  * @route /image
  * @method POST
  * @type image/tiff
