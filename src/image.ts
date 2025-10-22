@@ -37,9 +37,35 @@ function convertRgbaToPbmData(imageData): Buffer {
   return Buffer.from(bitmap)
 }
 
+function bayer4(img) {
+  img.greyscale()
+  const m = [
+    0, 8, 2, 10,
+    12, 4, 14, 6,
+    3, 11, 1, 9,
+    15, 7, 13, 5
+  ].map(n => n / 16)
+  for (let i = 0; i < img.bitmap.width * img.bitmap.height; i++) {
+    const x = i % img.bitmap.width
+    const y = Math.floor(i / img.bitmap.width)
+    const v = img.bitmap.data[i * 4] / 255
+    const mx = x % 4
+    const my = y % 4
+    const threshold = m[my * 4 + mx]
+    const result = v < threshold ? 0x00 : 0xff
+    img.bitmap.data[i * 4] = result
+    img.bitmap.data[i * 4 + 1] = result
+    img.bitmap.data[i * 4 + 2] = result
+    img.bitmap.data[i * 4 + 3] = 0xff
+  }
+}
+
 async function parseImg(imgBin: Buffer): Promise<Buffer> {
   const img = await Jimp.fromBuffer(imgBin)
-  img.greyscale()
+  if (img.bitmap.width > 512) {
+    img.resize({w: 512})
+  }
+  bayer4(img)
   const pbmData = convertRgbaToPbmData(img.bitmap)
   return parsePbmData(pbmData, img.bitmap.width, img.bitmap.height)
 }

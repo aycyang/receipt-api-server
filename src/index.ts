@@ -1,4 +1,5 @@
 // TODO
+// - git pre-commit hook for auto-generating docs, formatting code, linting
 // - /image
 //   - use jimp
 //   - jpg/png/gif support
@@ -291,15 +292,18 @@ app.post(
  * @type application/octet-stream
  */
 app.post('/image',
-  express.raw({ type: [
-    'application/octet-stream',
-    'image/tiff',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/bmp',
-    'image/x-ms-bmp',
-  ] }),
+  express.raw({
+    type: [
+      'application/octet-stream',
+      'image/tiff',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/bmp',
+      'image/x-ms-bmp',
+    ],
+    limit: '1mb',
+  }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
     if (!req.body) {
@@ -310,6 +314,7 @@ app.post('/image',
     try {
       buf = await image.generateEscPos(req.body)
     } catch (error) {
+      console.error(error)
       res.status(400).json({error: error})
       return
     }
