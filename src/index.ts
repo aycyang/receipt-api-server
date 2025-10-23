@@ -1,11 +1,11 @@
 // TODO
+// - fix docs - question mark goes on the param name, not the type name
 // - git pre-commit hook for auto-generating docs, formatting code, linting
 // - /image
-//   - use jimp
-//   - jpg/png/gif support
-//   - if too large: resize
-//   - if color: increase brightness and dither
 //   - optional boolean for dry-run/print-preview
+//   - return print stats (e.g. bytes_written, image_resized, image_dithered)
+//     in json response
+//   - return profiling information
 // - /text
 //   - validate characters are exclusively in range 32-126
 // - /escpos
@@ -14,10 +14,13 @@
 //   - look into printer real-time transmit status command
 // - check for csrf token in more places: header names other than X-CSRF-Token,
 //   in hidden form inputs (20 min)
+// - look into why sending large jpg image is slow, do some profiling, send
+//   some debug info
 //
 // - secret key rotation (30 min)
 // - investigate if concurrent requests can interfere with each other (30 min)
-// - some kind of audit log (1 hour)
+// - some kind of audit log, stored in a local database mapping user id to
+//   lines printed, head energizing strokes, autocutter operations
 // - parameterize oauth endpoints so oauth provider can be mocked out (10 min)
 // - set up test with mock oauth provider (1 hour)
 //
@@ -28,7 +31,6 @@
 // - automated testing (selenium against staging?)
 // - troubleshooting guide (on homepage)
 // - development guide (in readme)
-//   - check in a sample .env file
 // - sysadmin/provisioning guide (in readme)
 // - status monitoring (ping /status endpoint? need bidi usb communication)
 //
