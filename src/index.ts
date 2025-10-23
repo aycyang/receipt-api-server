@@ -1,5 +1,4 @@
 // TODO
-// - fix docs - question mark goes on the param name, not the type name
 // - git pre-commit hook for auto-generating docs, formatting code, linting
 // - /image
 //   - optional boolean for dry-run/print-preview
@@ -138,7 +137,7 @@ app.get('/', (req: Request, res: Response) => {
  * to verify that the user making the request is a Recurser.
  * @route /login
  * @method GET
- * @param {URL?} redirect_uri The URL to redirect back to after
+ * @param {URL} redirect_uri? The URL to redirect back to after
  *                            authentication is complete. Must be a
  *                            `*.recurse.com` subdomain.
  */
@@ -291,16 +290,16 @@ app.post(
  * @type application/json
  * @type application/x-www-form-urlencoded
  * @param {string} text May only contain ASCII characters in the range 32-126.
- * @param {number?} spacing Space between characters (0-255). Default 0.
- * @param {number?} scaleWidth Scale text horizontally (0-7). Default 0.
- * @param {number?} scaleHeight Scale text vertically (0-7). Default 0.
- * @param {boolean?} underline
- * @param {boolean?} bold
- * @param {boolean?} strike Strikethrough.
- * @param {string?} font "a" or "b". Default "a".
- * @param {boolean?} rotate Rotate 90 degrees clockwise.
- * @param {boolean?} upsideDown Print upside down.
- * @param {boolean?} invert Invert colors (white on black).
+ * @param {number} spacing? Space between characters (0-255). Default 0.
+ * @param {number} scaleWidth? Scale text horizontally (0-7). Default 0.
+ * @param {number} scaleHeight? Scale text vertically (0-7). Default 0.
+ * @param {boolean} underline?
+ * @param {boolean} bold?
+ * @param {boolean} strike? Strikethrough.
+ * @param {string} font? "a" or "b". Default "a".
+ * @param {boolean} rotate? Rotate 90 degrees clockwise.
+ * @param {boolean} upsideDown? Print upside down.
+ * @param {boolean} invert? Invert colors (white on black).
  */
 app.post(
   "/text",
