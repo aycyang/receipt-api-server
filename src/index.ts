@@ -53,6 +53,7 @@ import { env } from './env'
 import * as image from './image'
 import * as escpos from 'escpos-ts'
 import * as escposDeprecated from './escpos-deprecated'
+import { isPrintableAscii } from './middleware'
 const cors = require('cors')
 
 const app = express()
@@ -306,6 +307,7 @@ app.post(
   express.json(),
   express.urlencoded(),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  isPrintableAscii('text'),
   async (req: Request, res: Response) => {
     const b = new escposDeprecated.EscPosBuilder();
     const buf = b
@@ -326,11 +328,9 @@ app.post(
       if (err) {
         console.error(err);
       } else {
-        console.log(`text: wrote to ${env.outFile}`);
+        console.log(`text: wrote ${buf.length} bytes to ${env.outFile}`);
       }
     });
-    console.log(req.body);
-    console.log(`wrote to ${env.outFile}`);
     res.json({});
   }
 );
