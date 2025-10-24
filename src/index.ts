@@ -275,11 +275,9 @@ app.post(
       if (err) {
         console.error(err);
       } else {
-        console.log(`text: wrote to ${env.outFile}`);
+        console.log(`textblocks: wrote ${buf.length} to ${env.outFile}`);
       }
     });
-    console.log(req.body);
-    console.log(`wrote to ${env.outFile}`);
     res.json({});
   }
 );
@@ -290,7 +288,7 @@ app.post(
  * @method POST
  * @type application/json
  * @type application/x-www-form-urlencoded
- * @param {string} text May only contain ASCII characters in the range 32-126.
+ * @param {string} text May only contain printable ASCII characters.
  * @param {number} spacing? Space between characters (0-255). Default 0.
  * @param {number} scaleWidth? Scale text horizontally (0-7). Default 0.
  * @param {number} scaleHeight? Scale text vertically (0-7). Default 0.
@@ -301,6 +299,9 @@ app.post(
  * @param {boolean} rotate? Rotate 90 degrees clockwise.
  * @param {boolean} upsideDown? Print upside down.
  * @param {boolean} invert? Invert colors (white on black).
+ * @param {string} coda? Action to perform at the end.
+ *                       Can be "cut", "newline", "space", or "none".
+ *                       Default: "cut"
  */
 app.post(
   "/text",
@@ -309,21 +310,36 @@ app.post(
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   isPrintableAscii('text'),
   async (req: Request, res: Response) => {
-    const b = new escposDeprecated.EscPosBuilder();
-    const buf = b
-      .spacing(req.body.spacing || 0)
-      .scale(req.body.scaleWidth || 0, req.body.scaleHeight || 0)
-      .underline(!!req.body.underline)
-      .bold(!!req.body.bold)
-      .strike(!!req.body.strike)
-      .font(req.body.font === "b" ? "b" : "a")
-      .rotate(!!req.body.rotate)
-      .upsideDown(!!req.body.upsideDown)
-      .invert(!!req.body.invert)
-      .text(req.body.text || "")
-      .printAndFeed(6)
-      .cut()
-      .build();
+    const b = new escposDeprecated.EscPosBuilder()
+    b.spacing(req.body.spacing || 0)
+    b.scale(req.body.scaleWidth || 0, req.body.scaleHeight || 0)
+    b.underline(!!req.body.underline)
+    b.bold(!!req.body.bold)
+    b.strike(!!req.body.strike)
+    b.font(req.body.font === "b" ? "b" : "a")
+    b.rotate(!!req.body.rotate)
+    b.upsideDown(!!req.body.upsideDown)
+    b.invert(!!req.body.invert)
+    b.text(req.body.text || "")
+
+    switch (req.body.coda) {
+      case "space":
+        b.text(" ")
+        break
+      case "newline":
+        b.printAndFeed(1)
+        break
+      case "none":
+        break
+      case "cut":
+      default:
+        b.printAndFeed(6)
+        b.cut()
+        break
+    }
+
+    const buf = b.build()
+
     fs.writeFile(env.outFile, buf, (err) => {
       if (err) {
         console.error(err);
