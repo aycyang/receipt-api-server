@@ -413,7 +413,7 @@ app.post('/image',
  * @type application/octet-stream
  */
 app.post('/escpos',
-  express.raw({ type: 'application/octet-stream' }),
+  express.raw({ type: 'application/octet-stream', limit: '1mb' }),
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   async (req: Request, res: Response) => {
   fs.writeFile(env.outFile, req.body, err => {
