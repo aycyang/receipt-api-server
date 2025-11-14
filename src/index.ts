@@ -225,14 +225,7 @@ app.get('/status',
   }
 )
 
-/**
- * Print multiple text blocks to the printer.
- * @route /textblocks
- * @method POST
- * @type application/json
- * @type application/x-www-form-urlencoded
- * @param {TextBlock} textblocks
- */
+// Deprecated. Prefer using /text.
 app.post(
   "/textblocks",
   express.json(),
