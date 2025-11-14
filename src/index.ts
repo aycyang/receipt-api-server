@@ -54,6 +54,7 @@ import * as image from './image'
 import * as escpos from 'escpos-ts'
 import * as escposDeprecated from './escpos-deprecated'
 import { isPrintableAscii } from './middleware'
+
 const cors = require('cors')
 
 const app = express()
@@ -283,14 +284,11 @@ app.post(
  * @type application/x-www-form-urlencoded
  * @param {string} text May only contain printable ASCII characters.
  * @param {number} spacing? Space between characters (0-255). Default 0.
- * @param {number} scaleWidth? Scale text horizontally (0-7). Default 0.
- * @param {number} scaleHeight? Scale text vertically (0-7). Default 0.
+ * @param {number} scaleWidth? Scale text horizontally (1-8). Default 1.
+ * @param {number} scaleHeight? Scale text vertically (1-8). Default 1.
  * @param {boolean} underline?
  * @param {boolean} bold?
- * @param {boolean} strike? Strikethrough.
  * @param {string} font? "a" or "b". Default "a".
- * @param {boolean} rotate? Rotate 90 degrees clockwise.
- * @param {boolean} upsideDown? Print upside down.
  * @param {boolean} invert? Invert colors (white on black).
  * @param {string} coda? Action to perform at the end.
  *                       Can be "cut", "newline", "space", or "none".
@@ -303,35 +301,59 @@ app.post(
   env.isAuthEnabled ? csrf.express() : noopMiddleware,
   isPrintableAscii('text'),
   async (req: Request, res: Response) => {
-    const b = new escposDeprecated.EscPosBuilder()
-    b.spacing(req.body.spacing || 0)
-    b.scale(req.body.scaleWidth || 0, req.body.scaleHeight || 0)
-    b.underline(!!req.body.underline)
-    b.bold(!!req.body.bold)
-    b.strike(!!req.body.strike)
-    b.font(req.body.font === "b" ? "b" : "a")
-    b.rotate(!!req.body.rotate)
-    b.upsideDown(!!req.body.upsideDown)
-    b.invert(!!req.body.invert)
-    b.text(req.body.text || "")
+    const cmds = [new escpos.InitializePrinter()]
+    if (req.body.spacing) {
+      cmds.push(new escpos.SetCharacterSpacing(req.body.spacing))
+    }
+    if (req.body.scaleWidth || req.body.scaleHeight) {
+      const width = req.body.scaleWidth ?? 1
+      const height = req.body.scaleHeight ?? 1
+      cmds.push(new escpos.SelectCharacterSize({ width, height }))
+    }
+    if (req.body.underline) {
+      cmds.push(new escpos.SetUnderlineMode(escpos.UnderlineMode.OneDotThick))
+    }
+    if (req.body.bold) {
+      cmds.push(new escpos.SetEmphasizedMode(escpos.EmphasizedMode.On))
+    }
+    if (req.body.font) {
+      let font = null
+      switch (req.body.font) {
+        default:
+        case 'a':
+          font = escpos.CharacterFont.A
+          break
+        case 'b':
+          font = escpos.CharacterFont.B
+          break
+      }
+      cmds.push(new escpos.SelectCharacterFont(font))
+    }
+    if (req.body.invert) {
+      cmds.push(new escpos.SetWhiteAndBlackReversePrintMode(
+        escpos.WhiteAndBlackReversePrintMode.On))
+    }
+
+    const bufs = cmds.map(cmd => cmd.serialize())
+    bufs.push(Buffer.from(req.body.text))
 
     switch (req.body.coda) {
       case "space":
-        b.text(" ")
+        bufs.push(Buffer.from(' '))
         break
       case "newline":
-        b.printAndFeed(1)
+        bufs.push(Buffer.from('\n'))
         break
       case "none":
         break
       case "cut":
       default:
-        b.printAndFeed(6)
-        b.cut()
+        bufs.push(new escpos.PrintAndFeedNLines(6).serialize())
+        bufs.push(new escpos.SelectCutModeAndCutPaper(escpos.CutMode.CutPaper, escpos.CutShape.FullCut).serialize())
         break
     }
 
-    const buf = b.build()
+    const buf = Buffer.concat(bufs)
 
     fs.writeFile(env.outFile, buf, (err) => {
       if (err) {
