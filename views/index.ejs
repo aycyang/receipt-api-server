@@ -1,6 +1,57 @@
+<head>
+    <style>
+        table, tbody {
+            text-align: left;
+            border: 1px solid black;
+            border-spacing: 0px;
+            margin-bottom: 16px;
+        }
+        th, tr, td {
+            border: 1px solid black;
+            border-spacing: 0px;
+        }
+        th, td {
+            padding: 4px;
+        }
+    </style>
+</head>
 <h1>Receipt Printer API @ Recurse Center</h1>
 <% if (name) { %>
 <p>Hello, <strong><%= name %></strong>! You are now authorized to print! <a href="/logout">Log out</a></p>
+<p>
+  You can create an API key to integrate a service with the receipt printer
+  (authenticate by including it in an X-API-Key header):
+</p>
+<% if (apikeys && apikeys.length > 0) { %>
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Key</th>
+            <th>Created at</th>
+            <th>Last used at</th>
+            <th>Actions</th>
+        </tr>
+        <% for (let apikey of apikeys) { %>
+            <tr>
+                <td><%= apikey.name %></td>
+                <td><%= apikey.key %></td>
+                <td><%= new Date(apikey.createdAt).toUTCString() %></td>
+                <td><%= apikey.lastUsedAt ? new Date(apikey.lastUsedAt).toUTCString() : "(never)" %></td>
+                <td>
+                    <button class="revoke" data-key="<%= apikey.key %>">Revoke</button>
+                    <button class="renew" data-key="<%= apikey.key %>">Renew</button>
+                </td>
+            </tr>
+        <% } %>
+    </table>
+<% } %>
+<div style="display:flex;flex-direction:row;gap:4px;">
+    <label>Name:&nbsp;<input id="apikey-name-input" type="text"/></label>
+    <button id="create-new-key">Create new key</button>
+</div>
+<% if (apikeyStatus) { %>
+    <p style="color: red"><%= apikeyStatus %></p>
+<% } %>
 <p>Check out these cool websites that integrate with Receipt Printer API:</p>
 <ul>
 <li><a href="https://selfie.recurse.com">selfie.recurse.com</a></li>
@@ -19,4 +70,83 @@ const actualOrigin = window.location.origin
 if (intendedOrigin !== actualOrigin) {
   window.location.href = intendedOrigin
 }
+
+const csrfToken = (
+  document.cookie
+  .split(";")
+  .map(x => x.trim().split("="))
+  .filter(([x, _]) => x === 'receipt_csrf')
+  .map(([_, x]) => x)
+  [0]
+)
+
+/**
+ * Handle responses from api key related POST requests
+ *
+ * In particular, refresh page, adding error message to query params if appropriate.
+ */
+async function handleResponse(resp, actionName) {
+    const url = new URL(window.location.href)
+    const data = await resp.json()
+    let status
+    if (!resp.ok) {
+        status = `Failed - ${resp.status} - ${data.error} (${actionName})`
+    } else {
+        status = `Success - ${actionName} ${data.key}`
+    }
+    url.searchParams.set("apikeyStatus", status)
+    window.location.assign(url.href)
+}
+
+if (csrfToken) {
+    const headers = { "Content-Type": "application/json", "X-CSRF-Token": csrfToken }
+    document.getElementById("create-new-key").addEventListener(
+      "click",
+      () => {
+        const name = document.getElementById("apikey-name-input")
+        fetch(
+          "/apikey/create",
+          {
+            method: "POST",
+            body: JSON.stringify({ name: name?.value }),
+            headers,
+          }
+        )
+        .then(resp => handleResponse(resp, "create"))
+      }
+    )
+    for (const button of document.getElementsByClassName("revoke")) {
+        button.addEventListener(
+            "click",
+            () => {
+                fetch(
+                    "/apikey/revoke",
+                    {
+                        method: "POST",
+                        body: JSON.stringify({ key: button.dataset.key }),
+                        headers,
+                    }
+                )
+                .then(resp => handleResponse(resp, "revoke"))
+            }
+        )
+    }
+    for (const button of document.getElementsByClassName("renew")) {
+        button.addEventListener(
+            "click",
+            () => {
+                fetch(
+                    "/apikey/renew",
+                    {
+                        method: "POST",
+                        body: JSON.stringify({ key: button.dataset.key }),
+                        headers,
+                    }
+                )
+                .then(resp => handleResponse(resp, "renew"))
+            }
+        )
+    }
+}
 </script>
+

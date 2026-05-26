@@ -48,7 +48,9 @@ import * as fs from 'node:fs'
 import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
+import { apiOrSessionAuth } from './apiAuth'
 import { Csrf } from './csrf'
+import * as db from './db'
 import { env } from './env'
 import * as image from './image'
 import * as escpos from 'escpos-ts'
@@ -104,9 +106,23 @@ const config: oauthClient.Configuration = new oauthClient.Configuration(
 
 app.set('view engine', 'ejs')
 
-app.get('/', (req: Request, res: Response) => {
-  res.render('index', { name: req.session.rcName, origin: env.origin })
-})
+db.setup(db.DB)
+
+app.get('/', async (req: Request, res: Response) => {
+  const apikeys = req.session?.rcId ?
+    await db.getKeysForUser(db.DB, req.session?.rcId) :
+    undefined
+
+  res.render(
+      'index',
+      {
+        name: req.session.rcName,
+        apikeys: apikeys,
+        origin: env.origin,
+        apikeyStatus: req.query.apikeyStatus,
+      },
+    )
+  })
 
 /**
  * Authenticate with Receipt Printer API via Recurse Center OAuth.
@@ -231,7 +247,7 @@ app.post(
   "/textblocks",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
   async (req: Request, res: Response) => {
     // TODO: input verification
     const b = new escposDeprecated.EscPosBuilder();
@@ -298,7 +314,7 @@ app.post(
   "/text",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
   isPrintableAscii('text'),
   async (req: Request, res: Response) => {
     const cmds = [new escpos.InitializePrinter()]
@@ -395,7 +411,7 @@ app.post('/image',
     ],
     limit: '1mb',
   }),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
   async (req: Request, res: Response) => {
     if (!req.body) {
       res.status(400).json({error: 'unsupported Content-Type'})
@@ -429,7 +445,7 @@ app.post('/image',
  */
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream', limit: '1mb' }),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
   async (req: Request, res: Response) => {
   fs.writeFile(env.outFile, req.body, err => {
     if (err) {
@@ -441,6 +457,71 @@ app.post('/escpos',
   res.json({})
 })
 
+/**
+ * Create a new API Key for a user
+ *
+ * @route /apikey/create
+ * @method POST
+ */
+app.post('/apikey/create',
+  express.json(),
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
+      const name = req.body?.name
+      if (!name)  {
+          res.status(400)
+          res.json({ error: "must provide name for key" })
+      } else {
+          const newRow = await db.createKey(db.DB, req.session.rcId, name)
+          res.json({ success: true, key: newRow.key })
+      }
+  }
+)
+
+/**
+ * Renew the provided API Key, generating a new key with the same name
+ *
+ * @route /apikey/renew
+ * @method POST
+ */
+app.post('/apikey/renew',
+  express.json(),
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
+    const key = req.body?.key
+    if (!key) {
+      res.status(400);
+      res.json({ error: "no key found"})
+    } else {
+      const updatedRow = await db.renewKey(db.DB, key)
+      res.json({ success: true, key: updatedRow.key})
+    }
+  }
+)
+
+/**
+ * Revoke provided API key
+ *
+ * @route /apikey/revoke
+ * @method POST
+ */
+app.post('/apikey/revoke',
+  express.json(),
+  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  async (req: Request, res: Response) => {
+    const key = req.body?.key
+    if (!key) {
+      res.status(400);
+      res.json({ error: "no key found"})
+    } else {
+      await db.revokeKey(db.DB, key)
+      res.json({ success: true, key})
+    }
+  }
+)
+
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`)
 })
+

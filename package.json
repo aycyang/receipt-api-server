@@ -21,7 +21,9 @@
     "express": "^5.1.0",
     "jimp": "^1.6.0",
     "openid-client": "^6.8.1",
-    "tsx": "^4.20.6"
+    "sqlite3": "^6.0.1",
+    "tsx": "^4.20.6",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/cookie-session": "^2.0.49",
