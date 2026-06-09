@@ -48,9 +48,8 @@ import * as fs from 'node:fs'
 import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
-import { apiOrSessionAuth } from './apiAuth'
+import { publicKeyOrSessionAuth, loadPublicKey, isValidSignature } from './publicKeyAuth'
 import { Csrf } from './csrf'
-import * as db from './db'
 import { env } from './env'
 import * as image from './image'
 import * as escpos from 'escpos-ts'
@@ -106,23 +105,9 @@ const config: oauthClient.Configuration = new oauthClient.Configuration(
 
 app.set('view engine', 'ejs')
 
-db.setup(db.DB)
-
-app.get('/', async (req: Request, res: Response) => {
-  const apikeys = req.session?.rcId ?
-    await db.getKeysForUser(db.DB, req.session?.rcId) :
-    undefined
-
-  res.render(
-      'index',
-      {
-        name: req.session.rcName,
-        apikeys: apikeys,
-        origin: env.origin,
-        apikeyStatus: req.query.apikeyStatus,
-      },
-    )
-  })
+app.get('/', (req: Request, res: Response) => {
+  res.render('index', { name: req.session.rcName, origin: env.origin })
+})
 
 /**
  * Authenticate with Receipt Printer API via Recurse Center OAuth.
@@ -247,7 +232,7 @@ app.post(
   "/textblocks",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
+  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
   async (req: Request, res: Response) => {
     // TODO: input verification
     const b = new escposDeprecated.EscPosBuilder();
@@ -314,7 +299,7 @@ app.post(
   "/text",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
+  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
   isPrintableAscii('text'),
   async (req: Request, res: Response) => {
     const cmds = [new escpos.InitializePrinter()]
@@ -411,8 +396,10 @@ app.post('/image',
     ],
     limit: '1mb',
   }),
-  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
+  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
   async (req: Request, res: Response) => {
+    res.status(200).send()
+    return
     if (!req.body) {
       res.status(400).json({error: 'unsupported Content-Type'})
       return
@@ -445,7 +432,7 @@ app.post('/image',
  */
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream', limit: '1mb' }),
-  env.isAuthEnabled ? apiOrSessionAuth(db.DB, csrf.express()) : noopMiddleware,
+  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
   async (req: Request, res: Response) => {
   fs.writeFile(env.outFile, req.body, err => {
     if (err) {
@@ -458,70 +445,49 @@ app.post('/escpos',
 })
 
 /**
- * Create a new API Key for a user
+ * Test your public key before you add it to the repository. Succeeds if your
+ * key is in the correct format and the signature algorithm is correct.
  *
- * @route /apikey/create
- * @method POST
- */
-app.post('/apikey/create',
-  express.json(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
-  async (req: Request, res: Response) => {
-      const name = req.body?.name
-      if (!name)  {
-          res.status(400)
-          res.json({ error: "must provide name for key" })
-      } else {
-          const newRow = await db.createKey(db.DB, req.session.rcId, name)
-          res.json({ success: true, key: newRow.key })
-      }
-  }
-)
-
-/**
- * Renew the provided API Key, generating a new key with the same name
+ * Include the public key in the request body, and the signature in the header
+ * under "Signature". The server expects the public key to be an RSA key in the
+ * PEM format, and the signature to be created with PSS padding, a salt length
+ * of 0, and a SHA256 hash ("rsa-pss-sha256").
  *
- * @route /apikey/renew
+ * You can generate an RSA key pair in the expected format using ssh-keygen as follows:
+ *
+ * # Generate a RSA key pair
+ * ssh-keygen -f ~/.ssh/keyname -t rsa -m PEM
+ *
+ * # Export public key in the SPKI format
+ * ssh-keygen -e -f ~/.ssh/keyname -m PEM > ~/.ssh/keyname.pub
+ * @route /test-public-key
  * @method POST
+ * @type text/plain
  */
-app.post('/apikey/renew',
-  express.json(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
-  async (req: Request, res: Response) => {
-    const key = req.body?.key
-    if (!key) {
-      res.status(400);
-      res.json({ error: "no key found"})
-    } else {
-      const updatedRow = await db.renewKey(db.DB, key)
-      res.json({ success: true, key: updatedRow.key})
+app.post('/test-public-key',
+  express.text(),
+  (req: Request, res: Response) => {
+    // Load public key
+    let publicKey: crypto.KeyObject
+    try {
+      publicKey = loadPublicKey(req.body)
+    } catch {
+      res.status(400).send("Could not parse public key; check format")
+      return
     }
-  }
-)
 
-/**
- * Revoke provided API key
- *
- * @route /apikey/revoke
- * @method POST
- */
-app.post('/apikey/revoke',
-  express.json(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
-  async (req: Request, res: Response) => {
-    const key = req.body?.key
-    if (!key) {
-      res.status(400);
-      res.json({ error: "no key found"})
+    // Assert validity
+    const isValid = isValidSignature(req, req.header("Signature"), publicKey)
+    if (isValid) {
+      res.json({success: true})
     } else {
-      await db.revokeKey(db.DB, key)
-      res.json({ success: true, key})
+      res.status(400).send("Could not validate signature; make sure you are hashing the request body and using the correct algorithm")
     }
+
+    return
   }
 )
-
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`)
 })
-

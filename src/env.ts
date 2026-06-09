@@ -12,7 +12,6 @@ interface Env {
   origin: string
   outFile: string
   secretKey: string
-  sqliteDbUri: string
 }
 
 function assertIsDefined(v: string | undefined): string {
@@ -36,5 +35,4 @@ export const env: Env = {
   origin: assertIsDefined(process.env.ORIGIN),
   outFile: assertIsDefined(process.env.OUT_FILE),
   secretKey: assertIsDefined(process.env.SECRET_KEY),
-  sqliteDbUri: assertIsDefined(process.env.SQLITE_DB_URI),
 }
