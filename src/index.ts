@@ -48,7 +48,7 @@ import * as fs from 'node:fs'
 import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
-import { publicKeyOrSessionAuth, loadPublicKey, isValidSignature } from './publicKeyAuth'
+import { signatureAuthMiddleware } from './signatureAuth'
 import { Csrf } from './csrf'
 import { env } from './env'
 import * as image from './image'
@@ -86,8 +86,18 @@ app.use(cors(corsOptions))
 app.options(/.*/, (req, res) => res.sendStatus(204))
 
 const csrf = new Csrf(secretKeys)
+function combinedAuthMiddleware(req, res, next) {
+  if (!env.isAuthEnabled) {
+    next()
+    return
+  }
 
-const noopMiddleware = (req, res, next) => next()
+  if (req.header('Signature')) {
+    return signatureAuthMiddleware(req, res, next)
+  }
+
+  return csrf.express()(req, res, next)
+}
 
 const port = 3000
 
@@ -220,7 +230,7 @@ app.get('/callback', async (req: Request, res: Response) => {
 })
 
 app.get('/status',
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  combinedAuthMiddleware,
   (req, res) => {
     // TODO ping printer
     res.json({status: 'online'})
@@ -232,7 +242,7 @@ app.post(
   "/textblocks",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
+  combinedAuthMiddleware,
   async (req: Request, res: Response) => {
     // TODO: input verification
     const b = new escposDeprecated.EscPosBuilder();
@@ -299,7 +309,7 @@ app.post(
   "/text",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
+  combinedAuthMiddleware,
   isPrintableAscii('text'),
   async (req: Request, res: Response) => {
     const cmds = [new escpos.InitializePrinter()]
@@ -396,10 +406,8 @@ app.post('/image',
     ],
     limit: '1mb',
   }),
-  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
+  combinedAuthMiddleware,
   async (req: Request, res: Response) => {
-    res.status(200).send()
-    return
     if (!req.body) {
       res.status(400).json({error: 'unsupported Content-Type'})
       return
@@ -432,7 +440,7 @@ app.post('/image',
  */
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream', limit: '1mb' }),
-  env.isAuthEnabled ? publicKeyOrSessionAuth(csrf.express()) : noopMiddleware,
+  combinedAuthMiddleware,
   async (req: Request, res: Response) => {
   fs.writeFile(env.outFile, req.body, err => {
     if (err) {
@@ -443,50 +451,6 @@ app.post('/escpos',
   })
   res.json({})
 })
-
-/**
- * Test your public key before you add it to the repository. Succeeds if your
- * key is in the correct format and the signature algorithm is correct.
- *
- * Include the public key in the request body, and the signature in the header
- * under "Signature". The server expects the public key to be an RSA key in the
- * PEM format, and the signature to be created with PSS padding, a salt length
- * of 0, and a SHA256 hash ("rsa-pss-sha256").
- *
- * You can generate an RSA key pair in the expected format using ssh-keygen as follows:
- *
- * # Generate a RSA key pair
- * ssh-keygen -f ~/.ssh/keyname -t rsa -m PEM
- *
- * # Export public key in the SPKI format
- * ssh-keygen -e -f ~/.ssh/keyname -m PEM > ~/.ssh/keyname.pub
- * @route /test-public-key
- * @method POST
- * @type text/plain
- */
-app.post('/test-public-key',
-  express.text(),
-  (req: Request, res: Response) => {
-    // Load public key
-    let publicKey: crypto.KeyObject
-    try {
-      publicKey = loadPublicKey(req.body)
-    } catch {
-      res.status(400).send("Could not parse public key; check format")
-      return
-    }
-
-    // Assert validity
-    const isValid = isValidSignature(req, req.header("Signature"), publicKey)
-    if (isValid) {
-      res.json({success: true})
-    } else {
-      res.status(400).send("Could not validate signature; make sure you are hashing the request body and using the correct algorithm")
-    }
-
-    return
-  }
-)
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`)
