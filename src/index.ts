@@ -48,6 +48,7 @@ import * as fs from 'node:fs'
 import express, { Request, Response } from 'express'
 import cookieSession from 'cookie-session'
 import * as oauthClient from 'openid-client'
+import { signatureAuthMiddleware } from './signatureAuth'
 import { Csrf } from './csrf'
 import { env } from './env'
 import * as image from './image'
@@ -85,8 +86,18 @@ app.use(cors(corsOptions))
 app.options(/.*/, (req, res) => res.sendStatus(204))
 
 const csrf = new Csrf(secretKeys)
+function combinedAuthMiddleware(req, res, next) {
+  if (!env.isAuthEnabled) {
+    next()
+    return
+  }
 
-const noopMiddleware = (req, res, next) => next()
+  if (req.header('Signature')) {
+    return signatureAuthMiddleware(req, res, next)
+  }
+
+  return csrf.express()(req, res, next)
+}
 
 const port = 3000
 
@@ -219,7 +230,7 @@ app.get('/callback', async (req: Request, res: Response) => {
 })
 
 app.get('/status',
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  combinedAuthMiddleware,
   (req, res) => {
     // TODO ping printer
     res.json({status: 'online'})
@@ -231,7 +242,7 @@ app.post(
   "/textblocks",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  combinedAuthMiddleware,
   async (req: Request, res: Response) => {
     // TODO: input verification
     const b = new escposDeprecated.EscPosBuilder();
@@ -298,7 +309,7 @@ app.post(
   "/text",
   express.json(),
   express.urlencoded(),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  combinedAuthMiddleware,
   isPrintableAscii('text'),
   async (req: Request, res: Response) => {
     const cmds = [new escpos.InitializePrinter()]
@@ -395,7 +406,7 @@ app.post('/image',
     ],
     limit: '1mb',
   }),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  combinedAuthMiddleware,
   async (req: Request, res: Response) => {
     if (!req.body) {
       res.status(400).json({error: 'unsupported Content-Type'})
@@ -429,7 +440,7 @@ app.post('/image',
  */
 app.post('/escpos',
   express.raw({ type: 'application/octet-stream', limit: '1mb' }),
-  env.isAuthEnabled ? csrf.express() : noopMiddleware,
+  combinedAuthMiddleware,
   async (req: Request, res: Response) => {
   fs.writeFile(env.outFile, req.body, err => {
     if (err) {
