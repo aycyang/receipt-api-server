@@ -11,7 +11,14 @@ import { warn } from 'console'
 import crypto from 'crypto'
 import { Request, Response, NextFunction, RequestHandler } from 'express'
 
-const KNOWN_PUBLIC_KEYS: string[] = []
+const KNOWN_PUBLIC_KEYS: string[] = [
+
+// Receipt Printer Exquisite Corpse (deployed on RC Disco)
+`-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA8/L5Fm22E0LgmfVzHUZfULD/iKk9S9MGq5+hDRgWVJw=
+-----END PUBLIC KEY-----`,
+
+]
 
 let _KEY_CACHE: crypto.KeyObject[] = []
 
