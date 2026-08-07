@@ -357,6 +357,9 @@ app.post(
  * @type image/bmp
  * @type image/x-ms-bmp
  * @type application/octet-stream
+ * @param {number} cut? Provide as a query param
+ *                       Can be 0 or 1; if 1, cut.
+ *                       Default: "1" (cut)
  */
 app.post('/image',
   express.raw({
@@ -378,14 +381,25 @@ app.post('/image',
       res.status(400).json({error: 'unsupported Content-Type'})
       return
     }
-    let buf: Buffer
+
+    // Parse options from query
+    const cut = req.query.cut !== "0"
+
+    const bufs: Buffer[] = []
     try {
-      buf = await image.generateEscPos(req.body)
+      bufs.push(await image.generateEscPos(req.body))
+
+      if (cut) {
+        bufs.push(new escpos.PrintAndFeedNLines(6).serialize())
+        bufs.push(new escpos.SelectCutModeAndCutPaper(escpos.CutMode.CutPaper, escpos.CutShape.FullCut).serialize())
+      }
     } catch (error) {
       console.error(error)
       res.status(400).json({error: error})
       return
     }
+
+    const buf = Buffer.concat(bufs)
     fs.writeFile(env.outFile, buf, err => {
       if (err) {
         console.error(err)

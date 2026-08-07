@@ -137,8 +137,6 @@ function parsePbmData(pbmData: Buffer, width: number, height: number): Buffer {
     wLow, wHigh, hLow, hHigh,
     ...pbmData,
     0x1d, 0x28, 0x4c, 0x02, 0x00, 0x30, 0x32, 0x00, // print what's in the buffer
-    0x1b, 0x64, 0x06, // feed 6 lines
-    0x1d, 0x56, 0x00, // cut
   ])
 }
 
