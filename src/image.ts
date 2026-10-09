@@ -118,24 +118,33 @@ function parsePbmData(pbmData: Buffer, width: number, height: number): Buffer {
   if (width > 512) {
     throw new Error('width must be 512px or less')
   }
-  if (height > 1024) {
-    throw new Error('height must be 1024px or less')
+  if (height > 1600) {
+    throw new Error('height must be 1600px or less')
   }
   const widthBytes = Math.floor((width + 7) / 8)
   const p = widthBytes * height + 10
-  const pLow = p & 0xff
-  const pHigh = p >> 8
+
+  const p1 = p & 0xff
+  const p2 = (p >> 8) & 0xff
+  const p3 = (p >> 16) & 0xff
+  const p4 = p >> 24
+
   const wLow = width & 0xff
   const wHigh = width >> 8
   const hLow = height & 0xff
   const hHigh = height >> 8
+
   return Buffer.from([
     0x1b, 0x40, // initialize printer
-    0x1d, 0x28, 0x4c,
-    pLow, pHigh,
+
+    // use command GS8L to print image
+    // https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_lparen_cl_fn112.html
+    0x1d, 0x38, 0x4c,
+    p1, p2, p3, p4,
     0x30, 0x70, 0x30, 0x01, 0x01, 0x31,
     wLow, wHigh, hLow, hHigh,
     ...pbmData,
+
     0x1d, 0x28, 0x4c, 0x02, 0x00, 0x30, 0x32, 0x00, // print what's in the buffer
   ])
 }
