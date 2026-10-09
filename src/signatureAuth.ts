@@ -18,6 +18,11 @@ const KNOWN_PUBLIC_KEYS: string[] = [
 MCowBQYDK2VwAyEA8/L5Fm22E0LgmfVzHUZfULD/iKk9S9MGq5+hDRgWVJw=
 -----END PUBLIC KEY-----`,
 
+// RC Flower (Halloween Mode)
+`-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA0lxxib/++f5IlgbweyWkJcN2/C6+Zjpq217B1lYXU/M=
+-----END PUBLIC KEY-----`,
+
 ]
 
 let _KEY_CACHE: crypto.KeyObject[] = []
